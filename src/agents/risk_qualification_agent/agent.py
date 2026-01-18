@@ -1,6 +1,6 @@
 """Deprecated: risk_qualification_agent moved to risk_analysis_agent.
 
-This module is retained as a lightweight shim for compatibility. Use
+This module is retained as a lightweight shim for compatibility. Used
 `src.agents.risk_analysis_agent` instead.
 """
 

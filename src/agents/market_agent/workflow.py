@@ -1,5 +1,17 @@
 # workflow.py
 import os
+from dotenv import load_dotenv
+from google import genai
+
+# 1. Load the variables from the .env file into the environment
+load_dotenv() 
+
+# 2. Access the key using standard os.environ
+os.environ["GEMINI_API_KEY"] = os.getenv('GEMINI_API_KEY')
+
+# 3. Initialize the client (it now finds the key in the environment)
+client = genai.Client()
+import os
 from google import genai
 from typing import List, Dict
 from contracts import MarketRegimeInput

@@ -1,8 +1,0 @@
-version: "3.8"
-services:
-  app:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
-    container_name: ai-investment-council-app
-    restart: unless-stopped

@@ -1,73 +1,56 @@
 import yfinance as yf
-from typing import Dict, List, Optional
+import pandas as pd
 import logging
+from typing import Dict, Any
 
-logger = logging.getLogger("MarketUtils")
+logger = logging.getLogger(__name__)
 
-def fetch_nifty_data() -> Dict:
-    """Fetches key Nifty 50 benchmarks."""
+def fetch_market_indicators() -> Dict[str, Any]:
+    """
+    Fetches core Indian market indicators: VIX and Nifty 50.
+    """
     try:
-        nifty = yf.Ticker("^NSEI")
-        hist = nifty.history(period="1mo")
-        current = hist["Close"].iloc[-1]
-        prev = hist["Close"].iloc[0]
-        change_pct = ((current - prev) / prev) * 100
-        
+        # 1. Fetch India VIX (Expectation of Volatility)
+        vix = yf.Ticker("^INDIAVIX").history(period="1d")['Close'].iloc[-1]
+
+        # 2. Fetch Nifty 50 & 50-day SMA (Price Momentum)
+        nifty_ticker = yf.Ticker("^NSEI")
+        nifty_hist = nifty_ticker.history(period="3mo")
+        nifty_current = nifty_hist['Close'].iloc[-1]
+        sma_50 = nifty_hist['Close'].rolling(window=50).mean().iloc[-1]
+
         return {
-            "index": "Nifty 50",
-            "price": round(current, 2),
-            "change_1mo_pct": round(change_pct, 2),
-            "trend": "BULLISH" if change_pct > 2 else "BEARISH" if change_pct < -2 else "NEUTRAL"
+            "vix": round(vix, 2),
+            "nifty_price": round(nifty_current, 2),
+            "nifty_sma_50": round(sma_50, 2),
+            "nifty_trend": "BULLISH" if nifty_current > sma_50 else "BEARISH"
         }
     except Exception as e:
-        logger.error(f"Error fetching Nifty: {e}")
-        return {"trend": "NEUTRAL", "price": 22000}
+        logger.error(f"Core market data fetch failed: {e}")
+        return {"error": str(e), "vix": 18.0, "nifty_trend": "NEUTRAL"}
 
-def fetch_vix() -> float:
-    """Fetches India VIX or global VIX as fallback."""
-    try:
-        vix = yf.Ticker("^INDIAVIX") # India VIX
-        hist = vix.history(period="1d")
-        if hist.empty:
-            vix = yf.Ticker("^VIX") # Global VIX fallback
-            hist = vix.history(period="1d")
-        return round(hist["Close"].iloc[-1], 2)
-    except:
-        return 15.0
-
-def fetch_stock_info(ticker: str) -> Dict:
-    """Fetches key metrics for a specific ticker."""
-    try:
-        t = yf.Ticker(ticker)
-        info = t.info
-        return {
-            "symbol": ticker,
-            "price": info.get("currentPrice", 0),
-            "pe_ratio": info.get("trailingPE", 0),
-            "market_cap": info.get("marketCap", 0),
-            "beta": info.get("beta", 1.0)
-        }
-    except:
-        return {"symbol": ticker, "beta": 1.0}
-
-def screen_nifty_50(criteria: Dict) -> List[Dict]:
+def fetch_sectoral_breadth() -> Dict[str, str]:
     """
-    Mock screening of Nifty 50 stocks based on criteria.
-    In production, this would iterate through yfinance for Nifty components.
+    Elite feature: Checks if the rally is broad-based across Indian sectors.
+    Inspired by your Colab sectoral screening logic.
     """
-    # Sample universe for demo/scouting
-    universe = [
-        {"ticker": "RELIANCE.NS", "sector": "Energy", "quality_score": 9},
-        {"ticker": "TCS.NS", "sector": "IT", "quality_score": 9},
-        {"ticker": "HDFCBANK.NS", "sector": "Banking", "quality_score": 8},
-        {"ticker": "INFY.NS", "sector": "IT", "quality_score": 8},
-        {"ticker": "ICICIBANK.NS", "sector": "Banking", "quality_score": 8},
-        {"ticker": "HINDUNILVR.NS", "sector": "FMCG", "quality_score": 9},
-        {"ticker": "BTC-USD", "sector": "Crypto", "quality_score": 7}
-    ]
+    sectors = {
+        "BANKING": "^NSEBANK",
+        "IT": "NIFTY_IT.NS",
+        "AUTO": "NIFTY_AUTO.NS",
+        "METAL": "NIFTY_METAL.NS",
+        "PHARMA": "NIFTY_PHARMA.NS"
+    }
     
-    # Filter by risk/quality
-    min_quality = criteria.get("min_quality_score", 7)
-    results = [s for s in universe if s["quality_score"] >= min_quality]
-    
-    return results
+    breadth = {}
+    for name, ticker in sectors.items():
+        try:
+            data = yf.Ticker(ticker).history(period="1mo")
+            if not data.empty:
+                current = data['Close'].iloc[-1]
+                sma20 = data['Close'].rolling(20).mean().iloc[-1]
+                breadth[name] = "BULLISH" if current > sma20 else "BEARISH"
+        except Exception:
+            breadth[name] = "UNKNOWN"
+            
+    return breadth

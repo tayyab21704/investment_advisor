@@ -20,3 +20,32 @@ class InvestmentState(TypedDict):
     decision: str # PENDING, APPROVED, REJECTED, CONTINUE_DEBATE
     orchestrator_decision: Optional[Dict[str, Any]]
     error: Optional[str]
+
+    # ... existing fields ...
+
+    # [NEW] The output from the Scout Agent
+    scout_recommendations: Optional[List[Dict[str, Any]]]
+
+    # [NEW] Feedback from the Orchestrator (used for Loop 2)
+    orchestrator_decision: Optional[Dict[str, Any]]
+
+    # [NEW] Tracks how many times we've looped back (0 = first run)
+    iteration: int
+    # [RISK AGENT OUTPUTS]
+    # Stores the full audit report (Volatility, Beta, VaR, Reasoning)
+    risk_assessment: Optional[Dict[str, Any]]
+    
+    # The final flag used by the Graph to route traffic ("APPROVE" vs "REJECT")
+    decision: Optional[str] 
+    
+    # [FEEDBACK LOOP TRACKING]
+    # Stores the specific critique to send back to Scout (e.g., "Too much Crypto")
+    feedback_for_scout: Optional[str]
+
+# Add this to your existing state.py
+class MarketContext(TypedDict):
+    regime: str  # RISK_ON, RISK_OFF, NEUTRAL
+    confidence: float
+    indicators: Dict[str, Any]
+    sector_breadth: Dict[str, str]
+

@@ -1,38 +1,34 @@
-import logging
+import os
+from dotenv import load_dotenv
 from pymongo import MongoClient
-from src.core.config import settings
+from pymongo.errors import ConnectionFailure
 
-logger = logging.getLogger("MongoClient")
+load_dotenv()
 
-class MongoProvider:
+class MongoDBClient:
     def __init__(self):
+        self.uri = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+        self.db_name = os.getenv("MONGO_DB_NAME", "investment_ai_db")
+        self.client = None
+        self.db = None
+
+    def connect(self):
         try:
-            self.client = MongoClient(settings.MONGODB_URI, serverSelectionTimeoutMS=2000)
-            self.db = self.client[settings.MONGO_DB_NAME]
-            # Verify connection
-            self.client.server_info()
-        except Exception as e:
-            logger.warning(f"MongoDB not connected: {e}. Using mock mode.")
-            self.db = None
+            self.client = MongoClient(self.uri)
+            # The ismaster command is cheap and does not require auth.
+            self.client.admin.command('ismaster')
+            self.db = self.client[self.db_name]
+            print("Successfully connected to MongoDB")
+        except ConnectionFailure as e:
+            print(f"Could not connect to MongoDB: {e}")
 
-    def get_user_by_id(self, user_id: str):
-        if self.db is not None:
-            try:
-                user = self.db.users.find_one({"_id": user_id})
-                if user: return user
-            except: pass
-        # Safe mock defaults for test
-        return {"risk_score": 7, "income": 120000, "monthly_surplus": 50000}
+    def get_user_profile(self, user_id: str):
+        if not self.db:
+            self.connect()
+        
+        # Line 28: Fetch user data logic
+        user_collection = self.db["users"]
+        return user_collection.find_one({"user_id": user_id})
 
-    def save_recommendation(self, doc: dict):
-        if self.db is not None:
-            try:
-                return str(self.db.recommendations.insert_one(doc).inserted_id)
-            except: pass
-        return "mock_id_123"
-
-_mongo = None
-def get_mongo_client():
-    global _mongo
-    if _mongo is None: _mongo = MongoProvider()
-    return _mongo
+# Singleton instance
+mongo_client = MongoDBClient()

@@ -20,11 +20,6 @@ class InvestmentState(TypedDict):
     decision: str # PENDING, APPROVED, REJECTED, CONTINUE_DEBATE
     orchestrator_decision: Optional[Dict[str, Any]]
     error: Optional[str]
-    
-    # Optional: Keep the raw data for transparency/debugging
-    raw_user_data: Optional[Dict[str, Any]]
-    
-    # Other existing fields (market_context, scout_recommendations, etc.)
 
     # ... existing fields ...
 
@@ -53,3 +48,4 @@ class MarketContext(TypedDict):
     confidence: float
     indicators: Dict[str, Any]
     sector_breadth: Dict[str, str]
+

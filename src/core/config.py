@@ -61,12 +61,5 @@ class Settings(BaseSettings):
     # SYSTEM-WIDE SAFETY
     max_correlation_threshold: float = float(os.getenv("MAX_CORRELATION", 0.7))
 
-    mongo_uri: str = os.getenv("MONGO_URI", "mongodb://localhost:27017")
-    mongo_db_name: str = os.getenv("MONGO_DB_NAME", "investment_council")
-    
-    # --- PROFILING DEFAULTS ---
-    # The default risk score if calculations fail
-    default_risk_capacity: int = 5
-
 # Create a global instance to be used across the project
 settings = Settings()

@@ -139,3 +139,19 @@ def run_stress_test(tickers: List[str], scenario: str = "market_crash") -> Dict[
         }
     except Exception:
         return {"expected_portfolio_loss": 0.0}
+
+
+# Add to risk_tools.py at the bottom:
+
+def calculate_portfolio_volatility_simple(assets: List[Dict]) -> float:
+    """Fallback: Simplified volatility estimate if yfinance fails"""
+    if not assets:
+        return 0.0
+    market_vol = 15.0
+    betas = [a.get("beta", 1.0) for a in assets]
+    avg_beta = sum(betas) / len(betas)
+    return round(avg_beta * market_vol, 2)
+
+def estimate_max_drawdown_simple(volatility: float) -> float:
+    """Fallback: 2x volatility rule of thumb"""
+    return round(volatility * 2.0, 2)

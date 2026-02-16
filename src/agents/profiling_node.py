@@ -1,93 +1,206 @@
 import logging
 import json
+from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
 from src.core.state import InvestmentState
 from src.core.llm_client import get_llm_client
-from src.database.mongo_client import get_mongo_client
-from src.utils.behavioral_profiling import calculate_behavioral_risk_score
-from langchain_core.messages import HumanMessage
+from src.utils.personalization_tools import (
+    calculate_investable_amount,
+    validate_allocation,
+    suggest_allocation_strategy,
+    allocate_equal_weight
+)
 
-logger = logging.getLogger("ProfilingNode")
+logger = logging.getLogger("PersonalizationNode")
 
-async def profiling_node(state: InvestmentState) -> InvestmentState:
-    """
-    Node: Profiling.
-    Combines financial data (from DB) with behavioral answers (from state)
-    to establish the 'actual_risk_capacity'.
-    """
-    logger.info("--- NODE: Profiling ---")
-    user_id = state.get("user_id")
-    behavioral_answers = state.get("behavioral_answers", [])
-    
-    # 1. Fetch User Data from DB
-    mongo = get_mongo_client()
-    db_user = mongo.get_user_by_id(user_id)
-    financial_risk_score = db_user.get("risk_score", 5)
-    
-    # 2. Calculate Behavioral Risk Score
-    behavioral_risk_score = calculate_behavioral_risk_score(behavioral_answers)
-    
-    # 3. Derive Conservative Risk Capacity
-    actual_risk = min(financial_risk_score, behavioral_risk_score)
-    mismatch_warning = abs(financial_risk_score - behavioral_risk_score) > 3
-    
-    # 4. Use LLM to derive financial parameters based on actual_risk
-    llm = get_llm_client()
-    prompt = f"""
-    Analyze this investor profile and derive exact financial constraints:
-    - Actual Risk Capacity: {actual_risk}/10 (1=Ultra-Safe, 10=Aggressive)
-    - Monthly Income: ₹{db_user.get('income', 0)}
-    - Monthly Surplus: ₹{db_user.get('monthly_surplus', 0)}
-    - Behavioral Mismatch Warning: {mismatch_warning}
+# Define Tools
+tools = [
+    calculate_investable_amount,
+    validate_allocation,
+    suggest_allocation_strategy,
+    allocate_equal_weight
+]
 
-    Return ONLY a JSON object with:
-    {{
-      "max_drawdown_pct": int,
-      "max_single_asset_pct": int,
-      "max_high_risk_allocation_pct": int,
-      "liquidity_required_pct": int (reserve for emergencies),
-      "investment_horizon_years": int,
-      "human_conclusion": [list of 3 key profile observations]
-    }}
+tool_map = {
+    "calculate_investable_amount": calculate_investable_amount,
+    "validate_allocation": validate_allocation,
+    "suggest_allocation_strategy": suggest_allocation_strategy,
+    "allocate_equal_weight": allocate_equal_weight
+}
+
+async def personalization_node(state: InvestmentState) -> InvestmentState:
     """
+    Portfolio Allocation Agent:
+    Converts Scout's asset recommendations into monthly ₹ investments.
+    Uses tools to calculate, validate, and optimize allocations.
+    """
+    logger.info("💰 Personalization Agent: Starting allocation...")
     
-    try:
-        response = await llm.invoke([HumanMessage(content=prompt)])
-        raw_content = response.content
-        # Simple JSON extraction
-        if "```json" in raw_content:
-            raw_content = raw_content.split("```json")[1].split("```")[0].strip()
-        elif "```" in raw_content:
-            raw_content = raw_content.split("```")[1].split("```")[0].strip()
-        
-        derived_params = json.loads(raw_content)
-    except Exception as e:
-        logger.error(f"Error in profiling LLM call: {e}")
-        derived_params = {
-            "max_drawdown_pct": 15,
-            "max_single_asset_pct": 20,
-            "max_high_risk_allocation_pct": 10,
-            "liquidity_required_pct": 20,
-            "investment_horizon_years": 3,
-            "human_conclusion": ["Safe defaults used due to parsing error."]
+    # Extract context from state
+    recommendations = state.get("scout_recommendations", [])
+    profile = state["user_profile"]
+    
+    if not recommendations:
+        logger.error("No recommendations from Scout. Cannot allocate.")
+        state["final_portfolio"] = []
+        state["agent_outputs"]["personalization"] = {
+            "error": "No assets to allocate"
         }
+        return state
+    
+    # Extract user constraints
+    monthly_surplus = profile["monthly_surplus"]
+    liquidity_pct = profile["liquidity_required_pct"]
+    max_per_asset = profile["max_single_asset_pct"]
+    risk_score = profile["actual_risk_capacity"]
+    
+    # Initialize LLM with tools
+    llm = get_llm_client()
+    llm_with_tools = llm.bind_tools(tools)
+    
+    # System Prompt (The Mission)
+    sys_msg = SystemMessage(content=f"""
+You are a Certified Financial Planner (CFP) specializing in portfolio allocation.
 
-    # 5. Populate Profile in State
-    profile = {
-        "user_id": user_id,
-        "financial_risk_score": financial_risk_score,
-        "behavioral_risk_score": behavioral_risk_score,
-        "actual_risk_capacity": actual_risk,
-        "mismatch_warning": mismatch_warning,
-        "income": db_user.get('income', 0),
-        "monthly_surplus": db_user.get('monthly_surplus', 0),
-        **derived_params
+YOUR GOAL: Convert Scout's asset picks into monthly investment amounts (₹).
+
+USER PROFILE:
+- Monthly Surplus: ₹{monthly_surplus}
+- Risk Capacity: {risk_score}/10
+- Liquidity Requirement: {liquidity_pct}%
+- Max Per Asset: {max_per_asset}%
+
+ASSETS FROM SCOUT:
+{json.dumps(recommendations, indent=2)}
+
+YOUR TOOLS:
+1. `calculate_investable_amount(monthly_surplus, liquidity_pct)`: Calculate how much to invest after liquidity reserve
+2. `suggest_allocation_strategy(risk_score, asset_types)`: Get recommended weights based on risk profile
+3. `validate_allocation(allocations, investable_amount, max_per_asset)`: Check if allocation is valid
+4. `allocate_equal_weight(assets, investable_amount, max_per_asset)`: Fallback equal-weight allocation
+
+WORKFLOW:
+1. Calculate investable amount (after liquidity reserve)
+2. Get suggested allocation strategy for this risk profile
+3. Decide how to weight the assets intelligently (consider risk score, asset types)
+4. Validate your allocation
+5. If validation fails, adjust and re-validate
+
+FINAL OUTPUT (JSON):
+{{
+    "portfolio": [
+        {{
+            "ticker": "TCS.NS",
+            "name": "Tata Consultancy Services",
+            "monthly_investment": 3200,
+            "allocation_pct": 20.0,
+            "type": "equity",
+            "reasoning": "Blue-chip stability, overweighted for conservative profile"
+        }}
+    ],
+    "summary": {{
+        "total_allocated": 16000,
+        "liquidity_reserve": 4000,
+        "number_of_assets": 5,
+        "strategy_used": "conservative"
+    }}
+}}
+
+IMPORTANT:
+- allocation_pct is % of INVESTABLE amount (not total surplus)
+- Total allocations must equal investable amount
+- Respect max_per_asset constraint
+""")
+    
+    messages = [
+        sys_msg,
+        HumanMessage(content="Allocate the portfolio using the tools available.")
+    ]
+    
+    # Autonomous ReAct Loop
+    loop_active = True
+    iteration = 0
+    final_output = {}
+    
+    while loop_active and iteration < 6:  # Personalization needs fewer iterations
+        response = await llm_with_tools.invoke(messages)
+        messages.append(response)
+        iteration += 1
+        
+        # Check if LLM called tools
+        if response.tool_calls:
+            logger.info(f"🛠️ Agent calling {len(response.tool_calls)} tools...")
+            
+            for tool_call in response.tool_calls:
+                fn_name = tool_call["name"]
+                args = tool_call["args"]
+                
+                if fn_name in tool_map:
+                    try:
+                        logger.info(f"   -> Executing {fn_name}...")
+                        result = tool_map[fn_name](**args)
+                        content = json.dumps(result)
+                    except Exception as e:
+                        content = f"Error executing {fn_name}: {str(e)}"
+                        logger.error(content)
+                else:
+                    content = "Error: Tool not found."
+                
+                # Send observation back to LLM
+                messages.append(
+                    ToolMessage(content=content, tool_call_id=tool_call["id"])
+                )
+        
+        # Check if LLM provided final answer
+        else:
+            try:
+                raw_content = response.content
+                clean_content = raw_content.replace("```json", "").replace("```", "").strip()
+                final_output = json.loads(clean_content)
+                loop_active = False
+                logger.info(f"✅ Allocation complete: {len(final_output.get('portfolio', []))} assets")
+            except Exception as e:
+                logger.warning(f"Failed to parse JSON: {e}")
+                messages.append(
+                    HumanMessage(content="Please provide your final allocation in valid JSON format only.")
+                )
+    
+    # Fallback if loop exhausts
+    if not final_output or "portfolio" not in final_output:
+        logger.warning("Agent failed to converge. Using equal-weight fallback.")
+        
+        # Calculate investable amount manually
+        calc_result = calculate_investable_amount(monthly_surplus, liquidity_pct)
+        investable = calc_result["investable_amount"]
+        
+        # Use equal weight fallback
+        fallback_portfolio = allocate_equal_weight(
+            recommendations,
+            investable,
+            max_per_asset
+        )
+        
+        final_output = {
+            "portfolio": fallback_portfolio,
+            "summary": {
+                "total_allocated": investable,
+                "liquidity_reserve": calc_result["liquidity_reserve"],
+                "number_of_assets": len(fallback_portfolio),
+                "strategy_used": "equal_weight_fallback"
+            }
+        }
+    
+    # Update State
+    state["final_portfolio"] = final_output.get("portfolio", [])
+    
+    state["agent_outputs"]["personalization"] = {
+        "steps": iteration,
+        "trace": messages,  # Full conversation history
+        "summary": final_output.get("summary", {}),
+        "verdict": "APPROVE"  # Personalization always approves (it's just math)
     }
     
-    state["user_profile"] = profile
-    state["agent_outputs"]["profiling"] = {
-        "verdict": "COMPLETE",
-        "risk_capacity": actual_risk,
-        "observations": profile.get("human_conclusion", [])
-    }
+    logger.info(f"💰 Personalization Complete:")
+    logger.info(f"   - Assets: {len(state['final_portfolio'])}")
+    logger.info(f"   - Total: ₹{final_output.get('summary', {}).get('total_allocated', 0)}")
     
     return state

@@ -1,86 +1,110 @@
 import logging
 import json
-from src.core.state import InvestmentState
+import asyncio
+from langchain_core.messages import HumanMessage, SystemMessage
 from src.core.llm_client import get_llm_client
-from langchain_core.messages import HumanMessage
+from src.core.state import InvestmentState
+from src.core.config import settings
+from src.utils.orchestrator_utils import detect_strategy_conflicts, summarize_council_findings
+# NEW: Import the safe fallback tool
+from src.utils.scout_tools import find_safe_fallback_assets
 
-logger = logging.getLogger("OrchestratorDebateNode")
+logger = logging.getLogger("Orchestrator")
 
-async def orchestrator_debate_node(state: InvestmentState) -> InvestmentState:
+async def orchestrator_node(state: InvestmentState) -> InvestmentState:
     """
-    Node: Orchestrator Debate (Council).
-    Evaluates all agent outputs for conflicts and final fit.
+    The Orchestrator: Acts as the final judge (CIO).
+    UPDATED: Implements Debate Logic and 'Safe Harbor' Fail-Safe.
     """
-    logger.info("--- NODE: Orchestrator Debate ---")
-    llm = get_llm_client()
+    current_round = state.get('iteration', 0)
+    logger.info(f"--- NODE: Orchestrator Executive Review (Round {current_round}) ---")
     
-    # 1. Gather Agent Outputs
-    scout_output = state["agent_outputs"].get("scout", {})
-    risk_output = state["agent_outputs"].get("risk", {})
-    personal_output = state["agent_outputs"].get("personalization", {})
-    user_profile = state.get("user_profile", {})
+    # Rate Limit Defense
+    await asyncio.sleep(1)
+
+    # 1. Gather Evidence
+    auto_feedback = detect_strategy_conflicts(
+        state["market_context"], 
+        state["risk_assessment"], 
+        state["user_profile"]
+    )
+    council_summary = summarize_council_findings(state)
+    llm_client = get_llm_client()
     
-    # 2. Build Council Prompt
-    prompt = f"""
-    You are the Senior Orchestrator of a multi-agent investment advisory system.
-    Evaluate the analysis performed by your expert agents and make a final COUNCIL DECISION.
-
-    --- AGENT FINDINGS ---
-    1. SCOUT AGENT (Discovery):
-       - Recommendations: {[r['ticker'] for r in scout_output.get('recommendations', [])]}
-       - Reasoning Trace: {json.dumps(scout_output.get('reasoning_trace', []))}
-
-    2. RISK GUARDIAN (Safety):
-       - Verdict: {risk_output.get('verdict')}
-       - Issue: {risk_output.get('issue')}
-       - Est. Drawdown: {risk_output.get('metrics', {}).get('est_drawdown')}%
-
-    3. PERSONALIZATION (Allocation):
-       - Portfolio: {personal_output.get('portfolio')}
-
-    --- USER CONSTRAINTS ---
-    - Actual Risk Capacity: {user_profile.get('actual_risk_capacity')}/10
-    - Max Drawdown: {user_profile.get('max_drawdown_pct')}%
-    - Mismatch Warning: {user_profile.get('mismatch_warning')}
-
-    --- DECISION CRITERIA ---
-    1. Do agents agree or are there unresolved conflicts? (e.g., Risk says MODIFY but Scout didn't adjust).
-    2. Does the final rupee allocation respect the user's surplus and risk appetite?
-    3. Choose one:
-       - APPROVE: The plan is solid and safe.
-       - REJECT: Fundamental flaws that cannot be fixed by debate.
-       - CONTINUE_DEBATE: Minor adjustments or more reasoning needed from Scout/Risk.
-
-    Return ONLY a JSON object:
+    # 2. System Prompt asking for specific feedback
+    system_prompt = f"""You are the CIO. Review the council findings.
+    
+    COUNCIL SUMMARY:
+    {council_summary}
+    
+    AUTOMATED AUDIT:
+    {json.dumps(auto_feedback) if auto_feedback else "No hard violations."}
+    
+    DECISION GUIDELINES:
+    1. APPROVE: If the portfolio is safe and aligns with the market.
+    2. CONTINUE_DEBATE: If risky, you MUST provide feedback to the Scout.
+    
+    OUTPUT FORMAT (JSON Only):
     {{
-      "decision": "APPROVED" | "REJECTED" | "CONTINUE_DEBATE",
-      "rationalization": "Detailed explanation of your choice",
-      "debate_guidance": "If CONTINUE_DEBATE, what should agents reconsider?"
+        "decision": "APPROVE" | "CONTINUE_DEBATE",
+        "reasoning": "Explanation...",
+        "feedback_for_scout": {{
+            "violation_type": "Risk/Sector/Allocation",
+            "reasoning": "Specific instruction on what to fix."
+        }}
     }}
     """
-    
-    try:
-        response = await llm.invoke([HumanMessage(content=prompt)])
-        res_json = json.loads(response.content.strip().replace("```json", "").replace("```", ""))
-        
-        decision = res_json["decision"]
-        rationalization = res_json["rationalization"]
-    except Exception as e:
-        logger.error(f"Error in Orchestrator Debate: {e}")
-        # Default fallback
-        decision = "APPROVED" if risk_output.get("verdict") == "APPROVE" else "REJECTED"
-        rationalization = "Fallback triggered due to council error."
-        res_json = {"debate_guidance": "None"}
 
-    # 3. Update State
-    state["decision"] = decision
-    state["orchestrator_decision"] = {
-        "decision": decision,
-        "reasoning": rationalization,
-        "iteration": state.get("iteration", 0),
-        "guidance": res_json.get("debate_guidance")
+    # Default to CONTINUE_DEBATE to encourage improvement unless fatal error
+    decision_data = {
+        "decision": "CONTINUE_DEBATE", 
+        "reasoning": "Initial analysis pending."
     }
+
+    try:
+        response = await llm_client.invoke([
+            SystemMessage(content=system_prompt),
+            HumanMessage(content="Provide your verdict.")
+        ])
+        
+        # Smart JSON Parsing
+        content = response.content
+        s, e = content.find('{'), content.rfind('}')
+        if s != -1 and e != -1:
+            decision_data = json.loads(content[s:e+1])
+            
+        # --- THE FAIL-SAFE LOGIC ---
+        # If we have argued for too many rounds, we STOP debating and Force-Approve ETFs.
+        if current_round >= settings.max_debate_iterations:
+            logger.warning(f"⚠️ Max debate rounds ({settings.max_debate_iterations}) reached.")
+            
+            if decision_data.get("decision") != "APPROVE":
+                logger.info("🛡️ ACTIVATING FAIL-SAFE: Overwriting risky picks with Safe ETFs.")
+                
+                # 1. Force Approval
+                decision_data["decision"] = "APPROVE"
+                decision_data["reasoning"] = "Council deadlock resolved by deploying Safe Harbor ETFs."
+                
+                # 2. INJECT SAFE ASSETS directly into the State
+                # This overwrites whatever risky stocks the Scout found
+                safe_portfolio = find_safe_fallback_assets()
+                state["scout_recommendations"] = safe_portfolio
+        # ---------------------------
+
+    except Exception as e:
+        logger.error(f"Orchestrator error: {e}")
+        # On crash, default to Safe Approval to ensure user gets a result
+        decision_data["decision"] = "APPROVE"
+        decision_data["reasoning"] = "System recovered from error using Safe Mode."
+        state["scout_recommendations"] = find_safe_fallback_assets()
+
+    # Update State
+    state["decision"] = decision_data.get("decision", "APPROVE")
+    state["orchestrator_decision"] = decision_data
+    state["feedback_for_scout"] = decision_data.get("feedback_for_scout") or auto_feedback
     
-    state["agent_outputs"]["orchestrator"] = state["orchestrator_decision"]
+    # Increment Global Iteration Counter
+    state["iteration"] = current_round + 1
     
+    logger.info(f"📢 ORCHESTRATOR VERDICT: {state['decision']}")
     return state

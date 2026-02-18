@@ -15,8 +15,15 @@ class Settings(BaseSettings):
     # ============================================
     # LLM API KEYS
     # ============================================
-    gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
+    # Primary Key (Required)
     groq_api_key: str = os.getenv("GROQ_API_KEY", "")
+    
+    # Backup Keys (Optional) - FIX: Added type annotations to prevent Pydantic crash
+    groq_api_key_2: Optional[str] = os.getenv("GROQ_API_KEY_2")
+    groq_api_key_3: Optional[str] = os.getenv("GROQ_API_KEY_3")
+    
+    # Fallback Engine
+    gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
     
     # ============================================
     # DATABASE CONFIGURATION
@@ -83,8 +90,8 @@ class Settings(BaseSettings):
     default_investment_horizon_years: int = int(os.getenv("DEFAULT_HORIZON_YEARS", 10))
     
     # Debt Safety: Debt-to-Income ratio thresholds
-    high_debt_threshold: float = float(os.getenv("HIGH_DEBT_THRESHOLD", 0.4))  # 40% DTI is risky
-    critical_debt_threshold: float = float(os.getenv("CRITICAL_DEBT_THRESHOLD", 0.6))  # 60% DTI is critical
+    high_debt_threshold: float = float(os.getenv("HIGH_DEBT_THRESHOLD", 0.4))
+    critical_debt_threshold: float = float(os.getenv("CRITICAL_DEBT_THRESHOLD", 0.6))
     
     # Emergency Fund: Months of expenses to keep liquid
     min_emergency_fund_months: int = int(os.getenv("MIN_EMERGENCY_MONTHS", 3))
@@ -94,10 +101,10 @@ class Settings(BaseSettings):
     # ORCHESTRATOR DEBATE SETTINGS
     # ============================================
     # Max Debate Rounds: How many times orchestrator can loop back
-    max_debate_iterations: int = int(os.getenv("MAX_DEBATE_ITERATIONS", 2))
+    max_debate_iterations: int = int(os.getenv("MAX_DEBATE_ITERATIONS", 3))
     
     # Confidence Threshold: Min confidence to approve without debate
-    min_confidence_auto_approve: float = float(os.getenv("MIN_CONFIDENCE_APPROVE", 0.85))
+    min_confidence_auto_approve: float = float(os.getenv("MIN_CONFIDENCE_APPROVE", 0.8))
     
     # ============================================
     # PYDANTIC CONFIGURATION

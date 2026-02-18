@@ -1,64 +1,43 @@
 from typing import TypedDict, List, Dict, Any, Optional
 
-class InvestmentState(TypedDict):
-    """
-    State definition for the Investment Advisor.
-    Flows through all LangGraph nodes.
-    """
-    # === USER INPUT ===
-    user_id: str
-    behavioral_answers: List[int]
-    
-    # === AGENT OUTPUTS ===
-    user_profile: Optional[Dict[str, Any]]
-    market_context: Optional[Dict[str, Any]]
-    scout_recommendations: Optional[List[Dict[str, Any]]]
-    risk_assessment: Optional[Dict[str, Any]]
-    final_portfolio: Optional[List[Dict[str, Any]]]
-    orchestrator_decision: Optional[Dict[str, Any]]
-    
-    # === TRACKING & CONTROL ===
-    agent_outputs: Dict[str, Any]  # Full traces from all agents
-    iteration: int                  # Loop counter (0 = first run)
-    decision: str                   # PENDING, APPROVED, REJECTED, CONTINUE_DEBATE
-    error: Optional[str]            # Error message if something fails
-    
-    # === FEEDBACK LOOPS ===
-    feedback_for_scout: Optional[str]  # Specific guidance for Scout on revision
+# === TYPED SUBDICTIONARIES ===
 
-
-# === TYPED SUBDICTIONARIES (For Better Type Safety) ===
+class ScoutFeedback(TypedDict):
+    """
+    Structured feedback for the Scout Agent to improve recommendations.
+    """
+    violation_type: str        # e.g., "High Beta", "Sector Concentration"
+    offending_tickers: List[str] # Specific tickers that failed the audit
+    suggested_action: str      # Instructions for the next iteration
 
 class UserProfile(TypedDict):
     """
     User's complete risk and financial profile.
     Populated by Profiling Node.
     """
-    # === RISK SCORES ===
-    behavioral_risk_score: int        # 1-10 from behavioral questions
-    financial_risk_score: int         # 1-10 from financial analysis
-    actual_risk_capacity: int         # min(behavioral, financial)
+    # Risk Scores
+    behavioral_risk_score: int        
+    financial_risk_score: int         
+    actual_risk_capacity: int         
     
-    # === FINANCIAL DATA ===
-    monthly_income: float             # ₹ per month
-    monthly_expenses: float           # ₹ per month
-    monthly_surplus: float            # income - expenses
-    existing_debt: float              # Total debt ₹
-    debt_to_income_ratio: float       # debt / (monthly_income * 12)
+    # Financial Data
+    monthly_income: float             
+    monthly_expenses: float           
+    monthly_surplus: float            
+    existing_debt: float              
+    debt_to_income_ratio: float       
     
-    # === INVESTMENT CONSTRAINTS ===
-    liquidity_required_pct: float     # % to keep as emergency fund (default: 20)
-    max_single_asset_pct: float       # Max % per asset (default: 15)
-    max_high_risk_allocation_pct: float  # Max % in crypto/volatile assets (default: 40)
-    investment_horizon_years: int     # Time horizon (e.g., 10 years)
+    # Investment Constraints
+    liquidity_required_pct: float     # Default: 20%
+    max_single_asset_pct: float       # Default: 15%
+    max_high_risk_allocation_pct: float  # Default: 40%
+    investment_horizon_years: int     
     
-    # === RISK LIMITS (Based on risk tier) ===
-    max_drawdown_pct: float           # Max acceptable portfolio loss %
-    max_beta: float                   # Max portfolio beta vs market
+    # Risk Limits (Tier-based)
+    max_drawdown_pct: float           
+    max_beta: float                   
     
-    # === WARNINGS ===
-    risk_mismatch_warning: Optional[str]  # If behavioral vs financial differ >3
-
+    risk_mismatch_warning: Optional[str]
 
 class MarketContext(TypedDict):
     """
@@ -66,56 +45,80 @@ class MarketContext(TypedDict):
     Populated by Market Node.
     """
     regime: str                       # RISK_ON, RISK_OFF, NEUTRAL
-    confidence: float                 # 0.0-1.0
-    raw_analysis: str                 # LLM's reasoning
-    indicators: Dict[str, Any]        # VIX, Nifty, SMA, etc.
-    sector_breadth: Optional[Dict[str, str]]  # Sector-wise trends
-
+    confidence: float                 
+    raw_analysis: str                 
+    indicators: Dict[str, Any]        
+    sector_breadth: Optional[Dict[str, str]]
 
 class ScoutRecommendation(TypedDict):
     """
     Single asset recommendation from Scout.
     """
-    ticker: str                       # e.g., "TCS.NS"
-    name: str                         # e.g., "Tata Consultancy Services"
-    type: str                         # "equity", "crypto", "commodity", "debt"
-    sector: Optional[str]             # e.g., "IT"
-    quality_score: Optional[float]    # 0-100 composite score
-    price: Optional[float]            # Current price
-    pe: Optional[float]               # Price-to-Earnings ratio
-    roe: Optional[float]              # Return on Equity %
-    reasoning: Optional[str]          # Why Scout picked this
-
+    ticker: str                       
+    name: str                         
+    type: str                         # equity, crypto, commodity, debt
+    sector: Optional[str]             
+    quality_score: Optional[float]    
+    price: Optional[float]            
+    pe: Optional[float]               
+    roe: Optional[float]              
+    reasoning: Optional[str]          
 
 class RiskAssessment(TypedDict):
     """
     Risk audit results from Risk Guardian.
     """
     verdict: str                      # "APPROVE" or "REJECT"
-    metrics: Dict[str, float]         # Beta, volatility, VaR, max_drawdown
-    reasoning: str                    # Why approved/rejected
-    feedback: Optional[str]           # Specific guidance if rejected
-    confidence: float                 # 0.0-1.0
-
+    metrics: Dict[str, float]         
+    reasoning: str                    
+    feedback: Optional[str]           
+    confidence: float                 
 
 class FinalPortfolioAsset(TypedDict):
     """
     Single asset in the final allocated portfolio.
-    Populated by Personalization Node.
     """
     ticker: str
     name: str
-    monthly_investment: float         # ₹ amount per month
-    allocation_pct: float             # % of investable amount
-    type: str                         # "equity", "crypto", etc.
-    reasoning: str                    # Why this allocation
-
+    monthly_investment: float         
+    allocation_pct: float             
+    type: str                         
+    reasoning: str                    
 
 class OrchestratorDecision(TypedDict):
     """
-    Meta-decision from Orchestrator Debate Node.
+    Meta-decision from Orchestrator Node.
     """
     decision: str                     # "APPROVED", "REJECTED", "CONTINUE_DEBATE"
-    reasoning: str                    # LLM's full analysis
-    confidence: float                 # 0.0-1.0
-    iteration: int                    # Which debate round
+    reasoning: str                    
+    confidence: float                 
+    iteration: int                    
+
+# === MAIN STATE DEFINITION ===
+
+class InvestmentState(TypedDict):
+    """
+    State definition for the Investment Advisor.
+    Flows through all LangGraph nodes.
+    """
+    # User Input
+    user_id: str
+    behavioral_answers: List[int]
+    raw_user_data: Optional[Dict[str, Any]] # NEW: Persists original MongoDB/User data
+    
+    # Agent Results
+    user_profile: Optional[UserProfile]
+    market_context: Optional[MarketContext]
+    scout_recommendations: Optional[List[ScoutRecommendation]]
+    risk_assessment: Optional[RiskAssessment]
+    final_portfolio: Optional[List[FinalPortfolioAsset]]
+    orchestrator_decision: Optional[OrchestratorDecision]
+    
+    # Tracking & Control
+    agent_outputs: Dict[str, Any]  
+    iteration: int                  # 0 = first run
+    decision: str                   # PENDING, APPROVED, REJECTED, CONTINUE_DEBATE
+    error: Optional[str]            
+    
+    # Feedback Loop (Structured)
+    feedback_for_scout: Optional[ScoutFeedback] # NEW: Structured correction directive

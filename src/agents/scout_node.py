@@ -1,106 +1,111 @@
 import logging
 import json
-from langchain_core.messages import HumanMessage, AIMessage, ToolMessage, SystemMessage
+from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
 from src.core.state import InvestmentState
 from src.core.llm_client import get_llm_client
-from src.utils.scout_tools import get_universe_by_regime, analyze_ticker, get_vibe_check
+from src.utils.scout_tools import (
+    get_universe_by_regime, 
+    get_real_time_fundamentals, 
+    find_safe_fallback_assets
+)
 
 logger = logging.getLogger("ScoutNode")
 
-# 1. Define Tools
-tools = [get_universe_by_regime, analyze_ticker, get_vibe_check]
-
+# Define tools
+tools = [get_universe_by_regime, get_real_time_fundamentals, find_safe_fallback_assets]
 tool_map = {
     "get_universe_by_regime": get_universe_by_regime,
-    "analyze_ticker": analyze_ticker,
-    "get_vibe_check": get_vibe_check
+    "get_real_time_fundamentals": get_real_time_fundamentals,
+    "find_safe_fallback_assets": find_safe_fallback_assets
 }
 
 async def scout_node(state: InvestmentState) -> InvestmentState:
     """
-    True Autonomous Scout Agent.
-    It receives a mission and decides how to execute the search.
+    Scout Agent: The 'Idea Generator'.
+    LEARNING CAPABILITY: Reads feedback from previous rounds to refine search.
     """
-    logger.info(f"🔍 Scout Agent: Autonomous Mode (Cycle {state.get('iteration', 0)})")
+    iteration = state.get("iteration", 0)
+    feedback = state.get("feedback_for_scout", {})
     
-    llm = get_llm_client()
-    llm_with_tools = llm.bind_tools(tools)
-    
-    # Context
+    logger.info(f"🔍 Scout Agent: Cycle {iteration}")
+    if feedback:
+        logger.info(f"   ⚠️ ADAPTING STRATEGY based on feedback: {json.dumps(feedback)}")
+
+    # 1. Get User Profile & Market Context
     profile = state["user_profile"]
     market = state["market_context"]
-    is_revision = state.get("iteration", 0) > 0
-    feedback = state.get("orchestrator_decision", {}).get("reasoning", "") if is_revision else ""
+    
+    # 2. Construct Dynamic Prompt based on Iteration
+    base_prompt = f"""
+    You are an Equities Scout. Find best stocks for:
+    - Risk Capacity: {profile.get('actual_risk_capacity', 5)}/10
+    - Market Regime: {market.get('regime', 'NEUTRAL')}
+    """
 
-    # 2. System Prompt (The Mission)
-    sys_msg = SystemMessage(content=f"""
-        You are an elite Stock Scout.
+    # If this is a retry (iteration > 0), inject the feedback Lesson
+    if iteration > 0 and feedback:
+        base_prompt += f"""
+        \n🚨 CRITICAL FEEDBACK FROM PREVIOUS ROUND:
+        The Risk Officer REJECTED your last picks.
+        Reason: {feedback.get('reasoning', 'Unknown')}
+        Violation Type: {feedback.get('violation_type', 'General Risk')}
         
-        GOAL: Find 5-7 best assets for a user with Risk Capacity: {profile['actual_risk_capacity']}/10.
-        MARKET CONTEXT: The market is currently {market['regime']}.
-        
-        TOOLS:
-        - `get_universe_by_regime(regime)`: Get a list of potential tickers.
-        - `analyze_ticker(ticker)`: Get fundamentals and a Quality Score (0-100).
-        - `get_vibe_check(ticker)`: Get news sentiment.
-        
-        INSTRUCTIONS:
-        1. Start by fetching the universe for the current regime.
-        2. Analyze the fundamentals of the most promising candidates.
-        3. Check sentiment (vibe) for your top picks.
-        4. {f'IMPORTANT: This is a REVISION. Previous feedback: "{feedback}". Adjust accordingly.' if is_revision else ''}
-        
-        Output the final portfolio in JSON format containing a list of objects with 'ticker', 'name', 'reasoning'.
-    """)
+        YOUR NEW MISSION:
+        1. You MUST filter for safer assets.
+        2. Use `get_real_time_fundamentals` to CHECK Beta and Volatility.
+        3. If feedback says "High Beta", ensure your new picks have Beta < 1.0.
+        """
+    else:
+        base_prompt += "\nSelect 3-5 high-quality Indian stocks (NSE). Use `get_universe_by_regime` to start."
+
+    sys_msg = SystemMessage(content=base_prompt + "\nReturn JSON: [{'ticker': '...', 'name': '...', 'reason': '...'}]")
     
-    messages = [sys_msg, HumanMessage(content="Begin your search.")]
+    # 3. Initialize LLM
+    llm = get_llm_client()
+    llm_with_tools = llm.bind_tools(tools)
+    messages = [sys_msg, HumanMessage(content="Begin search.")]
     
-    # 3. Autonomous Loop
+    # 4. ReAct Loop
     loop_active = True
-    iteration_count = 0
-    final_picks = []
+    loop_count = 0
+    final_recs = []
     
-    while loop_active and iteration_count < 8: # Scout needs more steps
-        response = await llm_with_tools.invoke(messages)
+    while loop_active and loop_count < 6:
+        response = await llm_with_tools.ainvoke(messages)
         messages.append(response)
-        iteration_count += 1
+        loop_count += 1
         
         if response.tool_calls:
-            logger.info(f"🛠️ Scout calling {len(response.tool_calls)} tools...")
             for tool_call in response.tool_calls:
                 fn_name = tool_call["name"]
-                args = tool_call["args"]
+                
+                # Hallucination check for Groq
+                if fn_name == "none": 
+                    continue 
                 
                 if fn_name in tool_map:
                     try:
-                        result = tool_map[fn_name](**args)
-                        content = json.dumps(result)
+                        result = tool_map[fn_name](**tool_call["args"])
+                        messages.append(ToolMessage(content=json.dumps(result), tool_call_id=tool_call["id"]))
                     except Exception as e:
-                        content = f"Error: {str(e)}"
-                else:
-                    content = "Tool not found"
-                
-                messages.append(ToolMessage(content=content, tool_call_id=tool_call["id"]))
+                        messages.append(ToolMessage(content=f"Error: {e}", tool_call_id=tool_call["id"]))
         else:
-            # Process Final Answer
             try:
+                # Parse JSON output
                 content = response.content.replace("```json", "").replace("```", "").strip()
-                data = json.loads(content)
-                final_picks = data.get("portfolio", data) if isinstance(data, dict) else data
-                loop_active = False
-                logger.info(f"✅ Scout finished. Found {len(final_picks)} assets.")
+                # Find JSON array
+                start = content.find('[')
+                end = content.rfind(']')
+                if start != -1 and end != -1:
+                    final_recs = json.loads(content[start:end+1])
+                    loop_active = False
             except Exception:
-                messages.append(HumanMessage(content="Please provide the FINAL portfolio as valid JSON."))
+                messages.append(HumanMessage(content="Provide strictly a JSON list of assets."))
 
-    # 4. Update State
-    if not final_picks:
-        logger.error("Scout failed to produce a portfolio.")
-        final_picks = [] # Or handle fallback
+    # 5. Fallback: If Scout fails to find stocks, use Safe ETFs
+    if not final_recs:
+        logger.warning("Scout failed to find stocks. Deploying Safe Fallback Assets.")
+        final_recs = find_safe_fallback_assets()
 
-    state["scout_recommendations"] = final_picks
-    state["agent_outputs"]["scout"] = {
-        "steps": iteration_count,
-        "trace": messages # Save full objects
-    }
-    
+    state["scout_recommendations"] = final_recs
     return state

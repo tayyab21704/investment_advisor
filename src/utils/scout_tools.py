@@ -1,98 +1,133 @@
 import yfinance as yf
+import pandas as pd
+import numpy as np
 import logging
 from typing import List, Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
+def flatten_yf_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """Helper to handle yfinance MultiIndex headers (Critical for stability)."""
+    if df.empty: return df
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(0)
+    return df
+
 def get_universe_by_regime(regime: str) -> List[str]:
     """
     Returns a curated list of tickers based on the market regime.
-    RISK_ON = Growth/Tech/Crypto
-    RISK_OFF = Defensive/Gold/FMCG
     """
     universes = {
         "RISK_ON": [
             "TCS.NS", "INFY.NS", "RELIANCE.NS", "BAJFINANCE.NS", "TITAN.NS",
-            "TATAMOTORS.NS", "ICICIBANK.NS", "BTC-USD", "ETH-USD", "SOL-USD"
+            "TATAMOTORS.NS", "ICICIBANK.NS", "DLF.NS", "ZOMATO.NS"
         ],
         "RISK_OFF": [
             "HINDUNILVR.NS", "ITC.NS", "BRITANNIA.NS", "NESTLEIND.NS",
-            "SUNPHARMA.NS", "CIPLA.NS", "GC=F", "SI=F" # Gold/Silver
+            "SUNPHARMA.NS", "CIPLA.NS", "MARICO.NS", "DABUR.NS"
         ],
         "NEUTRAL": [
             "HDFCBANK.NS", "SBIN.NS", "KOTAKBANK.NS", "LT.NS",
-            "ULTRACEMCO.NS", "MARUTI.NS", "RELIANCE.NS", "ITC.NS"
+            "ULTRACEMCO.NS", "MARUTI.NS", "ASIANPAINT.NS"
         ]
     }
-    # Default to NEUTRAL if regime is unknown
     return universes.get(regime, universes["NEUTRAL"])
 
-def calculate_composite_score(info: Dict[str, Any]) -> float:
+def get_real_time_fundamentals(tickers: List[str]) -> List[Dict]:
     """
-    Calculates a Quality Score (0-100) using fundamental factors.
-    Prevents picking high-ROE stocks that have dangerous debt.
+    NEW: Fetches Price, Volatility, and Beta for a list of tickers.
+    This allows the Scout to 'Self-Correct' on risk before recommending.
     """
+    valid_data = []
+    if not tickers: return []
+
     try:
-        # 1. ROE Factor (40 points max)
+        # Download 1 year of data for stocks + Benchmark (Nifty 50) in one go
+        all_symbols = tickers + ["^NSEI"]
+        data = yf.download(all_symbols, period="1y", progress=False)
+        data = flatten_yf_dataframe(data)
+        
+        if 'Close' not in data.columns or data['Close'].empty:
+            return []
+
+        # Calculate Daily Returns
+        returns = data['Close'].pct_change().dropna()
+        
+        if "^NSEI" not in returns.columns:
+            logger.warning("Benchmark (^NSEI) missing. Skipping Beta calc.")
+            return []
+
+        market_variance = returns["^NSEI"].var()
+
+        for ticker in tickers:
+            if ticker not in returns.columns: continue
+                
+            # Calculate Beta: Covariance(Stock, Market) / Variance(Market)
+            covariance = returns[[ticker, "^NSEI"]].cov().iloc[0, 1]
+            beta = covariance / market_variance if market_variance != 0 else 1.0
+            
+            # Calculate Volatility (Annualized)
+            volatility = returns[ticker].std() * np.sqrt(252) * 100
+            
+            current_price = data['Close'][ticker].iloc[-1]
+
+            valid_data.append({
+                "ticker": ticker,
+                "current_price": round(float(current_price), 2),
+                "beta": round(float(beta), 2),
+                "volatility": round(float(volatility), 2),
+                "status": "Active"
+            })
+            
+    except Exception as e:
+        logger.error(f"Fundamental analysis failed: {e}")
+        
+    return valid_data
+
+def find_safe_fallback_assets() -> List[Dict]:
+    """
+    NEW: Returns 'Safety Portfolio' (ETFs) to ensure we never return 'REJECTED'.
+    """
+    return [
+        {"ticker": "NIFTYBEES.NS", "name": "Nippon India ETF Nifty BeES", "reason": "Benchmark Safety", "type": "ETF"},
+        {"ticker": "GOLDBEES.NS", "name": "Nippon India ETF Gold BeES", "reason": "Volatility Hedge", "type": "ETF"},
+        {"ticker": "LIQUIDBEES.NS", "name": "Nippon India ETF Liquid BeES", "reason": "Cash Management", "type": "ETF"}
+    ]
+
+# --- Keep existing helper functions for legacy support if needed ---
+
+def calculate_composite_score(info: Dict[str, Any]) -> float:
+    """Calculates Quality Score (0-100) using fundamental factors."""
+    try:
         roe = info.get('returnOnEquity', 0) * 100
         roe_score = min(roe * 2, 40)
         
-        # 2. Profit Growth Factor (30 points max)
         growth = info.get('earningsGrowth', 0) * 100
-        # If growth is None, assume 0
         if growth is None: growth = 0
         growth_score = min(max(growth * 0.5, 0), 30)
         
-        # 3. Debt-to-Equity Penalty (30 points max)
         debt_ratio = info.get('debtToEquity', 100)
-        # Ideally debt < 100 (1:1 ratio). Over 200 is risky.
-        if debt_ratio is None: 
-            debt_score = 15 # Neutral assumption if missing
+        if debt_ratio is None: debt_score = 15
         elif debt_ratio < 50: debt_score = 30
         elif debt_ratio < 100: debt_score = 20
         elif debt_ratio < 200: debt_score = 10
         else: debt_score = 0
         
-        total_score = roe_score + growth_score + debt_score
-        return round(total_score, 2)
-    except Exception as e:
-        logger.warning(f"Error calculating score: {e}")
+        return round(roe_score + growth_score + debt_score, 2)
+    except Exception:
         return 0.0
 
 def analyze_ticker(ticker: str) -> Optional[Dict[str, Any]]:
-    """
-    Fetches live data and computes the composite score for a single ticker.
-    """
+    """Legacy single-ticker analysis (Slow, use get_real_time_fundamentals for batching)."""
     try:
         stock = yf.Ticker(ticker)
         info = stock.info
-        
         score = calculate_composite_score(info)
-        
         return {
             "ticker": ticker,
             "name": info.get("longName", ticker),
-            "sector": info.get("sector", "Unknown"),
-            "price": info.get("currentPrice"),
-            "pe": info.get("trailingPE"),
-            "roe": round(info.get("returnOnEquity", 0) * 100, 2),
             "quality_score": score,
             "type": info.get("quoteType", "EQUITY")
         }
-    except Exception as e:
-        logger.error(f"Failed to analyze {ticker}: {e}")
-        return None
-
-def get_vibe_check(ticker: str) -> str:
-    """
-    Simplified Sentiment Analysis. Fetches top 3 news headlines.
-    """
-    try:
-        stock = yf.Ticker(ticker)
-        news = stock.news[:3] if stock.news else []
-        if not news:
-            return "No recent news found."
-        headlines = [n.get('title', '') for n in news]
-        return "; ".join(headlines)
     except Exception:
-        return "Sentiment data unavailable."
+        return None

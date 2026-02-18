@@ -4,12 +4,12 @@ from typing import List
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage, SystemMessage
 from src.core.state import InvestmentState
 from src.core.llm_client import get_llm_client
+# This imports the tools from your utils file
 from src.utils.market_data import fetch_market_indicators, fetch_sectoral_breadth
 
 logger = logging.getLogger("MarketNode")
 
 # 1. Define the Toolkit
-# We wrap your utils so the LLM can understand them as "Tools"
 tools = [fetch_market_indicators, fetch_sectoral_breadth]
 
 # Map functions for execution
@@ -59,8 +59,8 @@ async def market_node(state: InvestmentState) -> InvestmentState:
     final_output = {}
     
     while loop_active and iteration_count < 5:
-        # Ask LLM for next move
-        response = await llm_with_tools.invoke(messages)
+        # Ask LLM for next move (Using ainvoke for Async)
+        response = await llm_with_tools.ainvoke(messages)
         messages.append(response) # Add AI response to history
         iteration_count += 1
         

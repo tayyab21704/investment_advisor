@@ -73,17 +73,10 @@ ASSETS FROM SCOUT:
 {json.dumps(recommendations, indent=2)}
 
 YOUR TOOLS:
-1. `calculate_investable_amount(monthly_surplus, liquidity_pct)`: Calculate how much to invest after liquidity reserve
-2. `suggest_allocation_strategy(risk_score, asset_types)`: Get recommended weights based on risk profile
-3. `validate_allocation(allocations, investable_amount, max_per_asset)`: Check if allocation is valid
-4. `allocate_equal_weight(assets, investable_amount, max_per_asset)`: Fallback equal-weight allocation
-
-WORKFLOW:
-1. Calculate investable amount (after liquidity reserve)
-2. Get suggested allocation strategy for this risk profile
-3. Decide how to weight the assets intelligently (consider risk score, asset types)
-4. Validate your allocation
-5. If validation fails, adjust and re-validate
+1. `calculate_investable_amount(monthly_surplus, liquidity_pct)`
+2. `suggest_allocation_strategy(risk_score, asset_types)`
+3. `validate_allocation(allocations, investable_amount, max_per_asset)`
+4. `allocate_equal_weight(assets, investable_amount, max_per_asset)`
 
 FINAL OUTPUT (JSON):
 {{
@@ -94,113 +87,64 @@ FINAL OUTPUT (JSON):
             "monthly_investment": 3200,
             "allocation_pct": 20.0,
             "type": "equity",
-            "reasoning": "Blue-chip stability, overweighted for conservative profile"
+            "reasoning": "..."
         }}
     ],
-    "summary": {{
-        "total_allocated": 16000,
-        "liquidity_reserve": 4000,
-        "number_of_assets": 5,
-        "strategy_used": "conservative"
-    }}
+    "summary": {{ ... }}
 }}
-
-IMPORTANT:
-- allocation_pct is % of INVESTABLE amount (not total surplus)
-- Total allocations must equal investable amount
-- Respect max_per_asset constraint
 """)
     
-    messages = [
-        sys_msg,
-        HumanMessage(content="Allocate the portfolio using the tools available.")
-    ]
+    messages = [sys_msg, HumanMessage(content="Allocate the portfolio using the tools available.")]
     
-    # Autonomous ReAct Loop
     loop_active = True
     iteration = 0
     final_output = {}
     
-    while loop_active and iteration < 6:  # Personalization needs fewer iterations
-        response = await llm_with_tools.invoke(messages)
+    while loop_active and iteration < 6:
+        # Preserving your use of ainvoke
+        response = await llm_with_tools.ainvoke(messages)
         messages.append(response)
         iteration += 1
         
-        # Check if LLM called tools
         if response.tool_calls:
-            logger.info(f"🛠️ Agent calling {len(response.tool_calls)} tools...")
-            
             for tool_call in response.tool_calls:
                 fn_name = tool_call["name"]
-                args = tool_call["args"]
+                
+                # NEW: Hallucination filter for Groq
+                if fn_name == "none":
+                    logger.info("Ignoring 'none' tool hallucination.")
+                    continue
                 
                 if fn_name in tool_map:
                     try:
-                        logger.info(f"   -> Executing {fn_name}...")
-                        result = tool_map[fn_name](**args)
-                        content = json.dumps(result)
+                        result = tool_map[fn_name](**tool_call["args"])
+                        messages.append(ToolMessage(content=json.dumps(result), tool_call_id=tool_call["id"]))
                     except Exception as e:
-                        content = f"Error executing {fn_name}: {str(e)}"
-                        logger.error(content)
+                        messages.append(ToolMessage(content=f"Error: {str(e)}", tool_call_id=tool_call["id"]))
                 else:
-                    content = "Error: Tool not found."
-                
-                # Send observation back to LLM
-                messages.append(
-                    ToolMessage(content=content, tool_call_id=tool_call["id"])
-                )
-        
-        # Check if LLM provided final answer
+                    messages.append(ToolMessage(content="Error: Tool not found.", tool_call_id=tool_call["id"]))
         else:
             try:
                 raw_content = response.content
                 clean_content = raw_content.replace("```json", "").replace("```", "").strip()
                 final_output = json.loads(clean_content)
                 loop_active = False
-                logger.info(f"✅ Allocation complete: {len(final_output.get('portfolio', []))} assets")
-            except Exception as e:
-                logger.warning(f"Failed to parse JSON: {e}")
-                messages.append(
-                    HumanMessage(content="Please provide your final allocation in valid JSON format only.")
-                )
+            except Exception:
+                messages.append(HumanMessage(content="Please provide your final allocation in valid JSON format only."))
     
     # Fallback if loop exhausts
     if not final_output or "portfolio" not in final_output:
         logger.warning("Agent failed to converge. Using equal-weight fallback.")
-        
-        # Calculate investable amount manually
         calc_result = calculate_investable_amount(monthly_surplus, liquidity_pct)
-        investable = calc_result["investable_amount"]
-        
-        # Use equal weight fallback
-        fallback_portfolio = allocate_equal_weight(
-            recommendations,
-            investable,
-            max_per_asset
-        )
-        
-        final_output = {
-            "portfolio": fallback_portfolio,
-            "summary": {
-                "total_allocated": investable,
-                "liquidity_reserve": calc_result["liquidity_reserve"],
-                "number_of_assets": len(fallback_portfolio),
-                "strategy_used": "equal_weight_fallback"
-            }
-        }
+        fallback_portfolio = allocate_equal_weight(recommendations, calc_result["investable_amount"], max_per_asset)
+        final_output = {"portfolio": fallback_portfolio}
     
     # Update State
     state["final_portfolio"] = final_output.get("portfolio", [])
-    
     state["agent_outputs"]["personalization"] = {
         "steps": iteration,
-        "trace": messages,  # Full conversation history
-        "summary": final_output.get("summary", {}),
-        "verdict": "APPROVE"  # Personalization always approves (it's just math)
+        "trace": messages,
+        "verdict": "APPROVE" 
     }
-    
-    logger.info(f"💰 Personalization Complete:")
-    logger.info(f"   - Assets: {len(state['final_portfolio'])}")
-    logger.info(f"   - Total: ₹{final_output.get('summary', {}).get('total_allocated', 0)}")
     
     return state

@@ -1,0 +1,51 @@
+symbol,company_name,sector,market_cap_category
+RELIANCE,Reliance Industries Limited,Energy,Large Cap
+TCS,Tata Consultancy Services Limited,IT,Large Cap
+HDFCBANK,HDFC Bank Limited,Banking,Large Cap
+ICICIBANK,ICICI Bank Limited,Banking,Large Cap
+INFY,Infosys Limited,IT,Large Cap
+ITC,ITC Limited,FMCG,Large Cap
+SBIN,State Bank of India,Banking,Large Cap
+BHARTIARTL,Bharti Airtel Limited,Telecom,Large Cap
+BAJFINANCE,Bajaj Finance Limited,Financial Services,Large Cap
+HINDUNILVR,Hindustan Unilever Limited,FMCG,Large Cap
+LT,Larsen & Toubro Limited,Construction,Large Cap
+AXISBANK,Axis Bank Limited,Banking,Large Cap
+ADANIENT,Adani Enterprises Limited,Metals & Mining,Large Cap
+ASIANPAINT,Asian Paints Limited,Consumer Durables,Large Cap
+KOTAKBANK,Kotak Mahindra Bank Limited,Banking,Large Cap
+TITAN,Titan Company Limited,Consumer Durables,Large Cap
+ULTRACEMCO,UltraTech Cement Limited,Construction Materials,Large Cap
+SUNPHARMA,Sun Pharmaceutical Industries Limited,Healthcare,Large Cap
+MARUTI,Maruti Suzuki India Limited,Automobile,Large Cap
+WIPRO,Wipro Limited,IT,Large Cap
+HCLTECH,HCL Technologies Limited,IT,Large Cap
+NTPC,NTPC Limited,Power,Large Cap
+M&M,Mahindra & Mahindra Limited,Automobile,Large Cap
+TATASTEEL,Tata Steel Limited,Metals & Mining,Large Cap
+POWERGRID,Power Grid Corporation of India Limited,Power,Large Cap
+ONGC,Oil & Natural Gas Corporation Limited,Energy,Large Cap
+JSWSTEEL,JSW Steel Limited,Metals & Mining,Large Cap
+COALINDIA,Coal India Limited,Metals & Mining,Large Cap
+ADANIPORTS,Adani Ports and Special Economic Zone Limited,Services,Large Cap
+LTIM,LTIMindtree Limited,IT,Large Cap
+GRASIM,Grasim Industries Limited,Construction Materials,Large Cap
+BAJAJFINSV,Bajaj Finserv Limited,Financial Services,Large Cap
+INDUSINDBK,IndusInd Bank Limited,Banking,Large Cap
+HINDALCO,Hindalco Industries Limited,Metals & Mining,Large Cap
+TATAMOTORS,Tata Motors Limited,Automobile,Large Cap
+NESTLEIND,Nestle India Limited,FMCG,Large Cap
+SBILIFE,SBI Life Insurance Company Limited,Financial Services,Large Cap
+DRREDDY,Dr. Reddy's Laboratories Limited,Healthcare,Large Cap
+CIPLA,Cipla Limited,Healthcare,Large Cap
+BRITANNIA,Britannia Industries Limited,FMCG,Large Cap
+EICHERMOT,Eicher Motors Limited,Automobile,Large Cap
+ADANIGREEN,Adani Green Energy Limited,Power,Large Cap
+ADANITRANS,Adani Energy Solutions Limited,Power,Large Cap
+BPCL,Bharat Petroleum Corporation Limited,Energy,Large Cap
+BAJAJ-AUTO,Bajaj Auto Limited,Automobile,Large Cap
+APOLLOHOSP,Apollo Hospitals Enterprise Limited,Healthcare,Large Cap
+TATASTEEL,Tata Steel Limited,Metals & Mining,Large Cap
+DIVISLAB,Divi's Laboratories Limited,Healthcare,Large Cap
+HEROMOTOCO,Hero MotoCorp Limited,Automobile,Large Cap
+HDFCLIFE,HDFC Life Insurance Company Limited,Financial Services,Large Cap

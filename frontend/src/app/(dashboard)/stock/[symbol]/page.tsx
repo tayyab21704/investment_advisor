@@ -50,16 +50,16 @@ export default function StockPage() {
 
     if (error || !detail) {
         return (
-            <div className="flex flex-col items-center justify-center h-64 gap-3">
-                <AlertCircle size={28} color="#555" />
-                <p className="text-sm font-mono" style={{ color: '#888' }}>{error ?? 'Unknown error'}</p>
+            <div className="flex flex-col items-center justify-center h-64 gap-4">
+                <AlertCircle size={32} className="text-text-muted" />
+                <p className="text-sm font-mono text-text-secondary">{error ?? 'Unknown error'}</p>
             </div>
         );
     }
 
     const isPos = detail.change_pct >= 0;
     const ArrowIcon = isPos ? TrendingUp : TrendingDown;
-    const arrowColor = isPos ? '#22c55e' : '#ef4444';
+    const arrowColor = isPos ? 'var(--positive)' : 'var(--negative)';
 
     // Day range bar position
     const dayLow = detail.day_low ?? detail.current_price;
@@ -80,45 +80,44 @@ export default function StockPage() {
 
     return (
         <div className="px-6 py-5 max-w-[1400px] mx-auto animate-fade-up">
-            <div className="grid gap-5" style={{ gridTemplateColumns: '1fr 360px' }}>
+            <div className="grid gap-6" style={{ gridTemplateColumns: '1fr 360px' }}>
                 {/* ── Left column ──────────────────────────────────────── */}
-                <div className="space-y-5">
+                <div className="space-y-6">
                     {/* Stock header */}
                     <div
-                        className="rounded-xl p-5"
-                        style={{ background: '#0e0e0e', border: '1px solid #333' }}
+                        className="rounded-2xl p-6 bg-bg-surface border border-border-subtle shadow-xl"
                     >
                         {/* Symbol + name */}
-                        <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-start justify-between mb-5">
                             <div>
-                                <div className="text-3xl font-mono font-bold mb-1" style={{ color: '#e5e5e5' }}>
+                                <div className="text-3xl font-mono font-bold mb-1 text-text-primary tracking-tight">
                                     {detail.symbol}
                                 </div>
-                                <div className="text-sm mb-2" style={{ color: '#888' }}>{detail.name}</div>
+                                <div className="text-sm mb-3 text-text-secondary">{detail.name}</div>
                                 <div className="flex items-center gap-2 flex-wrap">
                                     {detail.sector && (
-                                        <span className="text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ color: '#6a9d9e', background: 'rgba(106,157,158,0.12)', border: '1px solid rgba(106,157,158,0.2)' }}>
+                                        <span className="text-[10px] px-2 py-0.5 rounded-md font-mono font-semibold text-blue bg-blue-dim border border-blue/20">
                                             {detail.sector}
                                         </span>
                                     )}
                                     {detail.industry && (
-                                        <span className="text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ color: '#888', background: '#252525', border: '1px solid #333' }}>
+                                        <span className="text-[10px] px-2 py-0.5 rounded-md font-mono font-semibold text-text-secondary bg-bg-elevated border border-border-default">
                                             {detail.industry}
                                         </span>
                                     )}
                                 </div>
                             </div>
-                            <RegimeBadge regime={detail.regime ?? 'NEUTRAL'} confidence={detail.regime_confidence} size="sm" />
+                            <RegimeBadge regime={detail.regime ?? 'NEUTRAL'} confidence={detail.regime_confidence} size="md" />
                         </div>
 
                         {/* Price */}
-                        <div className="mb-3">
-                            <div className="text-4xl font-mono font-bold mb-1" style={{ color: '#e5e5e5' }}>
+                        <div className="mb-4">
+                            <div className="text-4xl font-mono font-bold mb-1.5 text-text-primary tracking-tight">
                                 ₹{detail.current_price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                             </div>
                             <div className="flex items-center gap-2">
-                                <ArrowIcon size={16} color={arrowColor} />
-                                <span className="font-mono text-sm" style={{ color: arrowColor }}>
+                                <ArrowIcon size={20} color={arrowColor} />
+                                <span className="font-mono text-[15px] font-bold" style={{ color: arrowColor }}>
                                     {detail.change > 0 ? '+' : ''}{detail.change.toFixed(2)}
                                     {' '}({detail.change_pct > 0 ? '+' : ''}{detail.change_pct.toFixed(2)}%)
                                 </span>
@@ -127,18 +126,18 @@ export default function StockPage() {
 
                         {/* Day range bar */}
                         <div className="mb-1">
-                            <div className="flex justify-between text-[9px] font-mono mb-1" style={{ color: '#555' }}>
+                            <div className="flex justify-between text-[10px] font-mono mb-1.5 font-bold text-text-muted">
                                 <span>Day Low ₹{dayLow.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                                 <span>Day High ₹{dayHigh.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                             </div>
-                            <div className="relative h-1 rounded-full" style={{ background: '#252525' }}>
+                            <div className="relative h-1.5 rounded-full bg-bg-elevated">
                                 <div
                                     className="absolute h-full rounded-full"
-                                    style={{ width: `${dayRangePct}%`, background: isPos ? '#22c55e' : '#ef4444' }}
+                                    style={{ width: `${dayRangePct}%`, background: arrowColor }}
                                 />
                                 <div
-                                    className="absolute w-2.5 h-2.5 rounded-full -top-[3px]"
-                                    style={{ left: `calc(${dayRangePct}% - 5px)`, background: isPos ? '#22c55e' : '#ef4444', border: '2px solid #0e0e0e' }}
+                                    className="absolute w-3 h-3 rounded-full -top-[3px]"
+                                    style={{ left: `calc(${dayRangePct}% - 6px)`, background: arrowColor, border: '2px solid var(--color-bg-surface)' }}
                                 />
                             </div>
                         </div>
@@ -149,15 +148,14 @@ export default function StockPage() {
 
                     {/* Key stats strip */}
                     <div
-                        className="rounded-xl px-5 py-3 grid grid-cols-6 divide-x"
-                        style={{ background: '#0e0e0e', border: '1px solid #333' }}
+                        className="rounded-2xl px-6 py-4 grid grid-cols-6 divide-x divide-border-subtle bg-bg-surface border border-border-subtle shadow-xl"
                     >
                         {stats.map(({ label, value }) => (
-                            <div key={label} className="px-3 first:pl-0 last:pr-0">
-                                <div className="text-[9px] uppercase tracking-wider font-mono mb-0.5" style={{ color: '#555' }}>
+                            <div key={label} className="px-4 first:pl-0 last:pr-0">
+                                <div className="text-[10px] uppercase tracking-wider font-mono font-semibold mb-1 text-text-muted">
                                     {label}
                                 </div>
-                                <div className="text-xs font-mono" style={{ color: '#e5e5e5' }}>
+                                <div className="text-[13px] font-mono font-bold text-text-primary">
                                     {value}
                                 </div>
                             </div>

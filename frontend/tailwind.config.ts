@@ -10,22 +10,22 @@ const config: Config = {
         extend: {
             colors: {
                 bg: {
-                    base: '#0A0A0A',
-                    surface: '#111111',
-                    elevated: '#181818',
-                    overlay: '#1F1F1F',
+                    base: 'var(--color-bg-base)',
+                    surface: 'var(--color-bg-surface)',
+                    elevated: 'var(--color-bg-elevated)',
+                    overlay: 'var(--color-bg-overlay)',
                 },
                 border: {
-                    subtle: '#1E1E1E',
-                    default: '#2A2A2A',
-                    strong: '#3D3D3D',
-                    accent: '#00C896',
+                    subtle: 'var(--color-border-subtle)',
+                    default: 'var(--color-border-default)',
+                    strong: 'var(--color-border-strong)',
+                    accent: 'var(--color-border-accent)',
                 },
                 text: {
-                    primary: '#EFEFEF',
-                    secondary: '#888888',
-                    muted: '#4A4A4A',
-                    inverse: '#0A0A0A',
+                    primary: 'var(--color-text-primary)',
+                    secondary: 'var(--color-text-secondary)',
+                    muted: 'var(--color-text-muted)',
+                    inverse: 'var(--color-text-inverse)',
                 },
                 green: {
                     DEFAULT: '#00C896',
@@ -43,18 +43,30 @@ const config: Config = {
                     dim: '#FFB34718',
                 },
                 blue: {
-                    DEFAULT: '#4D9EFF',
-                    dim: '#4D9EFF18',
+                    DEFAULT: '#CBCDFF',
+                    dim: '#CBCDFF18',
+                    dark: '#9B9EEA',
                 },
-                purple: {
-                    DEFAULT: '#A78BFA',
-                    dim: '#A78BFA15',
-                    glow: '#A78BFA25',
+                pink: {
+                    DEFAULT: '#F79ACC',
+                    dim: '#F79ACC15',
+                    glow: '#F79ACC25',
+                },
+                primary: {
+                    DEFAULT: 'var(--primary)',
+                    hover: 'var(--primary-hover)',
+                    dim: 'var(--primary-dim)',
+                    glow: 'var(--primary-glow)',
+                },
+                negative: {
+                    DEFAULT: 'var(--negative)',
+                    dim: 'var(--negative-dim)',
                 },
             },
             fontFamily: {
-                display: ['var(--font-display)', 'Sora', 'sans-serif'],
-                body: ['var(--font-body)', 'Geist', 'sans-serif'],
+                sans: ['var(--font-inter)', 'sans-serif'],
+                display: ['var(--font-inter)', 'sans-serif'],
+                body: ['var(--font-inter)', 'sans-serif'],
                 mono: ['var(--font-mono)', 'DM Mono', 'monospace'],
             },
             fontSize: {

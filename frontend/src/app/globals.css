@@ -1,53 +1,54 @@
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@900,700,500,300,400&display=swap');
 @import "tailwindcss";
 
 :root {
   /* === BACKGROUNDS === */
-  --color-bg-base: #1a1a1a;
-  --color-bg-surface: #0e0e0e;
-  --color-bg-elevated: #252525;
-  --color-bg-overlay: #2a2a2a;
+  --color-bg-base: #000000;
+  --color-bg-surface: #0a0a0a;
+  --color-bg-elevated: #111111;
+  --color-bg-overlay: #1a1a1a;
 
   /* === BORDERS === */
-  --color-border-subtle: #2a2a2a;
+  --color-border-subtle: #222222;
   --color-border-default: #333333;
   --color-border-strong: #444444;
-  --color-border-accent: #ea923e;
+  --color-border-accent: #CBCDFF;
 
   /* === TEXT === */
-  --color-text-primary: #e5e5e5;
-  --color-text-secondary: #888888;
-  --color-text-muted: #555555;
-  --color-text-inverse: #0e0e0e;
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: #A1A1AA;
+  --color-text-muted: #71717A;
+  --color-text-inverse: #000000;
 
-  /* === BRAND — PRIMARY (Orange) === */
-  --primary: #ea923e;
-  --primary-dim: rgba(234, 146, 62, 0.12);
-  --primary-glow: rgba(234, 146, 62, 0.25);
-  --primary-hover: #cf7d2d;
+  /* === BRAND — PRIMARY (Blue) === */
+  --primary: #CBCDFF;
+  --primary-dim: rgba(203, 205, 255, 0.12);
+  --primary-glow: rgba(203, 205, 255, 0.25);
+  --primary-hover: #9B9EEA;
 
-  /* === BRAND — SECONDARY (Teal) === */
-  --secondary: #6a9d9e;
-  --secondary-dim: rgba(106, 157, 158, 0.12);
+  /* === BRAND — SECONDARY (Pink) === */
+  --secondary: #F79ACC;
+  --secondary-dim: rgba(247, 154, 204, 0.12);
 
   /* === SEMANTIC === */
-  --positive: #22c55e;
-  --positive-dim: rgba(34, 197, 94, 0.12);
-  --negative: #ef4444;
-  --negative-dim: rgba(239, 68, 68, 0.12);
+  --positive: #00C896;
+  --positive-dim: rgba(0, 200, 150, 0.12);
+  --negative: #FF5252;
+  --negative-dim: rgba(255, 82, 82, 0.12);
   --neutral: #888888;
 
   /* === LEGACY (kept for backward compat) === */
-  --color-green: #22c55e;
-  --color-red: #ef4444;
-  --color-amber: #ea923e;
+  --color-green: #00C896;
+  --color-red: #FF5252;
+  --color-amber: #FFB347;
 
   /* === SPECIAL === */
-  --color-shimmer-base: #252525;
-  --color-shimmer-highlight: #333333;
+  --color-shimmer-base: #111111;
+  --color-shimmer-highlight: #222222;
 
   /* === FONTS === */
-  --font-display: var(--font-geist-mono), 'Geist Mono', monospace;
-  --font-body: var(--font-geist-mono), 'Geist Mono', monospace;
+  --font-display: 'Satoshi', var(--font-geist-mono), monospace;
+  --font-body: 'Satoshi', var(--font-geist-mono), monospace;
   --font-mono: var(--font-jb-mono), 'JetBrains Mono', monospace;
 
   /* === BORDER RADIUS === */

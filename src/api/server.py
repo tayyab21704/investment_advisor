@@ -20,6 +20,7 @@ from zoneinfo import ZoneInfo
 
 # The ONE import from agents we're allowed:
 from src.orchestrator.graph import council_app
+from src.api.auth import router as auth_router
 
 # Utility helpers
 from src.utils.market_data import (
@@ -36,17 +37,27 @@ logger = logging.getLogger("API")
 
 IST = ZoneInfo("Asia/Kolkata")
 
-# CORS — update with your Vercel domain after deploy
+# ─── CORS ────────────────────────────────────────────────────────────────────
+# NOTE: Wildcard patterns like "https://*.vercel.app" are NOT supported by
+# FastAPI's CORSMiddleware. Only exact origins or "*" are valid.
+# Add your exact Vercel deploy URL here before deploying.
+
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    # Add your production URL here, e.g.:
+    # "https://your-app.vercel.app",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://*.vercel.app",
-    ],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 
 # ─── IN-MEMORY CACHE ────────────────────────────────────────────────────────
 _cache: dict = {}
@@ -129,6 +140,14 @@ def health_check(response: Response):
     return {"status": "ok", "timestamp": now_ist}
 
 
+# ─── ROOT (prevents 404 on browser visit) ───────────────────────────────────
+
+@app.get("/")
+def root():
+    """Root endpoint — confirms API is running."""
+    return {"message": "Investment Council API is running. Visit /docs for API reference."}
+
+
 # ─── MARKET STATUS ───────────────────────────────────────────────────────────
 
 @app.get("/api/market-status")
@@ -157,10 +176,8 @@ def market_status(response: Response):
 
     # Next open: next Monday if weekend, else tomorrow (or today if not yet open)
     if is_open or (is_weekday and now < market_open):
-        # Today is/was a trading day
         next_open_date = now.date() if (is_weekday and now < market_open) else None
         if next_open_date is None:
-            # After market close or weekend — next business day
             days_ahead = 1
             trial = now.date() + timedelta(days=days_ahead)
             while trial.weekday() >= 5:
@@ -168,7 +185,6 @@ def market_status(response: Response):
                 trial = now.date() + timedelta(days=days_ahead)
             next_open_date = trial
     else:
-        # Weekend or post-market
         days_ahead = 1
         trial = now.date() + timedelta(days=days_ahead)
         while trial.weekday() >= 5:
@@ -199,7 +215,6 @@ def market_status(response: Response):
 def market_indices(response: Response):
     """NIFTY 50, SENSEX, BANK NIFTY — enriched via nsepython, cached 5 min."""
 
-    # Map from legacy ticker key → nsepython index name
     INDEX_NSE_MAP = {
         "^NSEI":    "NIFTY 50",
         "^BSESN":   "SENSEX",
@@ -222,8 +237,6 @@ def market_indices(response: Response):
                 change_pct = quote.get("change_pct", 0) or 0
                 prev_close = quote.get("prev_close") or (current - change)
 
-                # 1-year daily history for SMA-50 + year high/low + sparkline
-                # Map index to a symbol nsepython history supports
                 hist_symbol = {"NIFTY 50": "NIFTY", "NIFTY BANK": "BANKNIFTY"}.get(index_name)
                 close_list = []
                 if hist_symbol:
@@ -270,7 +283,6 @@ def top_movers(response: Response):
     """Top 5 gainers and losers via nsepython NIFTY 100 — cached 3 min."""
     def fetch():
         raw = get_top_movers()
-        # Enrich with name/sector from STOCK_UNIVERSE
         def enrich(item: dict) -> dict:
             sym  = item.get("symbol", "")
             meta = STOCK_UNIVERSE.get(sym, {})
@@ -286,7 +298,7 @@ def top_movers(response: Response):
                 "avg_volume":    item.get("avg_volume", 0),
                 "volume_surge":  item.get("volume_surge", False),
                 "sector":        meta.get("sector"),
-                "sparkline":     [],   # sparkline via separate call if needed
+                "sparkline":     [],
             }
         return {
             "gainers": [enrich(g) for g in raw.get("gainers", [])],
@@ -297,7 +309,7 @@ def top_movers(response: Response):
     return _make_response(data, hit, response)
 
 
-# ─── SECTORS (new) ───────────────────────────────────────────────────────────
+# ─── SECTORS ────────────────────────────────────────────────────────────────
 
 @app.get("/api/sectors")
 def sectors(response: Response):
@@ -309,7 +321,7 @@ def sectors(response: Response):
     return _make_response(data, hit, response)
 
 
-# ─── SEARCH (upgraded) ───────────────────────────────────────────────────────
+# ─── SEARCH ──────────────────────────────────────────────────────────────────
 
 @app.get("/api/search")
 def search(q: str, response: Response):
@@ -326,11 +338,9 @@ def search(q: str, response: Response):
             quote = get_stock_quote(sym)
             current_price = quote.get("current_price") if quote else None
             change_pct    = quote.get("change_pct")    if quote else None
-            market_cap_cr = None   # fundamentals call is expensive for search
         except Exception:
             current_price = None
             change_pct    = None
-            market_cap_cr = None
 
         results.append({
             "symbol":        sym,
@@ -339,14 +349,14 @@ def search(q: str, response: Response):
             "industry":      m.get("industry"),
             "current_price": current_price,
             "change_pct":    change_pct,
-            "market_cap_cr": market_cap_cr,
+            "market_cap_cr": None,
         })
 
     response.headers["X-Cache"] = "MISS"
     return {"results": results, "query": q, "total": len(results)}
 
 
-# ─── STOCK DETAIL (enriched) ────────────────────────────────────────────────
+# ─── STOCK DETAIL ────────────────────────────────────────────────────────────
 
 @app.get("/api/stock/{symbol}")
 def stock_detail(symbol: str, response: Response):
@@ -354,7 +364,6 @@ def stock_detail(symbol: str, response: Response):
     symbol    = unquote(symbol).upper().strip()
     clean_sym = symbol.replace(".NS", "")
 
-    # Unify Index and Stock handling
     is_index = clean_sym.startswith("^")
     index_name = {
         "^NSEI":    "NIFTY 50",
@@ -364,7 +373,6 @@ def stock_detail(symbol: str, response: Response):
     }.get(clean_sym)
 
     def fetch():
-        # ── Quote (live price) ──────────────────────────────────────────
         if is_index:
             if not index_name:
                 raise HTTPException(status_code=404, detail={"error": "Index not supported", "symbol": clean_sym})
@@ -380,8 +388,6 @@ def stock_detail(symbol: str, response: Response):
         change        = quote.get("change") or (current_price - prev_close)
         change_pct    = quote.get("change_pct") or 0.0
 
-        # ── Historical candles (all 5 timeframes) ───────────────────────
-        # Use full index name for indices so market_data.py can route to index_history
         hist_symbol = index_name if is_index else clean_sym
 
         candles_1d = get_stock_history(hist_symbol, "1d",  "5m")
@@ -390,39 +396,24 @@ def stock_detail(symbol: str, response: Response):
         candles_1y = get_stock_history(hist_symbol, "1y",  "1d")
         candles_5y = get_stock_history(hist_symbol, "5y",  "1wk")
 
-        # Best available close series for technicals
         base_candles = candles_1y or candles_1m
         close_list   = [c["close"] for c in base_candles if c.get("close")]
         close_series = pd.Series(close_list) if close_list else pd.Series([current_price])
 
-        # ── Technicals ──────────────────────────────────────────────────
-        # For indices, SMA is calculated from history if available
-        if is_index and candles_1y:
-            closes = [c["close"] for c in candles_1y if c.get("close")]
-            close_series = pd.Series(closes) if closes else pd.Series([current_price])
-            sma_20  = calculate_sma(close_series, 20)
-            sma_50  = calculate_sma(close_series, 50)
-            sma_200 = calculate_sma(close_series, 200)
-            rsi_14  = calculate_rsi(close_series, 14)
-            regime, regime_conf = get_regime(current_price, sma_50)
-        else:
-            sma_20  = calculate_sma(close_series, 20)
-            sma_50  = calculate_sma(close_series, 50)
-            sma_200 = calculate_sma(close_series, 200)
-            rsi_14  = calculate_rsi(close_series, 14)
-            regime, regime_conf = get_regime(current_price, sma_50)
+        sma_20  = calculate_sma(close_series, 20)
+        sma_50  = calculate_sma(close_series, 50)
+        sma_200 = calculate_sma(close_series, 200)
+        rsi_14  = calculate_rsi(close_series, 14)
+        regime, regime_conf = get_regime(current_price, sma_50)
 
         year_high = _safe_float(quote.get("year_high") or (close_series.max() if len(close_series) > 1 else None))
         year_low  = _safe_float(quote.get("year_low")  or (close_series.min() if len(close_series) > 1 else None))
 
-        # ── Fundamentals (Twelve Data — can be 0 if no key set) ─────────
         fund = get_stock_fundamentals(clean_sym)
 
-        # ── Legacy chart (v1 compat) ─────────────────────────────────────
         legacy_chart = []
         for c in (candles_1y or []):
             ts = c.get("timestamp", "")
-            # If it's a date like 17-Feb-2026, leave it; if it's ISO, slice to 10
             time_str = ts[:10] if "-" in ts and len(ts) > 10 else ts
             legacy_chart.append({
                 "time":   time_str,
@@ -433,18 +424,15 @@ def stock_detail(symbol: str, response: Response):
                 "volume": int(c.get("volume") or 0)
             })
 
-        # ── Meta from universe ───────────────────────────────────────────
         meta = STOCK_UNIVERSE.get(clean_sym, {})
 
         return {
-            # Identity
             "symbol":   clean_sym,
             "name":     meta.get("name", clean_sym),
             "sector":   meta.get("sector"),
             "industry": meta.get("industry"),
             "description": "",
 
-            # Price
             "price":         round(current_price, 2),
             "current_price": round(current_price, 2),
             "change":        round(float(change), 2),
@@ -464,7 +452,6 @@ def stock_detail(symbol: str, response: Response):
             "market_cap":    None,
             "debt_equity":   fund.get("debt_to_equity"),
 
-            # Fundamentals
             "market_cap_cr":  fund.get("market_cap_cr"),
             "pe_ratio":       fund.get("pe_ratio"),
             "pb_ratio":       fund.get("pb_ratio"),
@@ -475,7 +462,6 @@ def stock_detail(symbol: str, response: Response):
             "revenue_cr":     fund.get("revenue_cr"),
             "profit_cr":      fund.get("profit_cr"),
 
-            # Multi-timeframe charts
             "chart_1d": candles_1d,
             "chart_1w": candles_1w,
             "chart_1m": candles_1m,
@@ -483,7 +469,6 @@ def stock_detail(symbol: str, response: Response):
             "chart_5y": candles_5y,
             "chart":    legacy_chart,
 
-            # Technicals
             "sma_20":        sma_20,
             "sma_50":        sma_50,
             "sma_200":       sma_200,
@@ -491,7 +476,6 @@ def stock_detail(symbol: str, response: Response):
             "above_sma_50":  (current_price > sma_50)  if sma_50  else None,
             "above_sma_200": (current_price > sma_200) if sma_200 else None,
 
-            # Sentiment
             "regime":            regime,
             "regime_confidence": regime_conf,
         }
@@ -499,6 +483,8 @@ def stock_detail(symbol: str, response: Response):
     data, hit = get_cached(f"stock_{clean_sym}", 120, fetch)
     return _make_response(data, hit, response)
 
+
+# ─── CHART ───────────────────────────────────────────────────────────────────
 
 @app.get("/api/chart/{symbol}")
 def get_chart(symbol: str, response: Response, timeframe: str = "1M"):
@@ -508,7 +494,6 @@ def get_chart(symbol: str, response: Response, timeframe: str = "1M"):
     """
     symbol = unquote(symbol).upper().strip()
 
-    # Map timeframe to period/interval
     tf_map = {
         "1D": ("1d", "5m"),
         "1W": ("5d", "15m"),
@@ -521,7 +506,6 @@ def get_chart(symbol: str, response: Response, timeframe: str = "1M"):
     cache_key = f"chart_{symbol}_{period}_{interval}"
 
     def fetch():
-        # Handle index symbol (^) mapping
         hist_symbol = symbol
         if symbol.startswith("^"):
             index_name = {
@@ -556,6 +540,9 @@ class UserProfileInput(BaseModel):
 @app.post("/api/council/analyze")
 async def council_analyze(profile: UserProfileInput):
     """Run the full agent graph. Takes 10-30 seconds. Returns full report."""
+    import uuid
+    thread_id = str(uuid.uuid4())   # unique per request — required by LangGraph checkpointer
+
     initial_state = {
         "user_id": "web_user_" + str(int(time.time())),
         "behavioral_answers": [],
@@ -584,8 +571,16 @@ async def council_analyze(profile: UserProfileInput):
         "feedback_for_scout":    None,
         "orchestrator_decision": {},
     }
+    # LangGraph config — thread_id is mandatory when a checkpointer is attached
+    langgraph_config = {
+        "configurable": {
+            "thread_id":     thread_id,
+            "checkpoint_ns": "",      # empty string = root namespace
+        }
+    }
+
     try:
-        result = await council_app.ainvoke(initial_state)
+        result = await council_app.ainvoke(initial_state, config=langgraph_config)
 
         portfolio = result.get("final_portfolio", [])
         risk = result.get("risk_assessment", {})

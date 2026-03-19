@@ -1,8 +1,13 @@
 import type { Metadata } from 'next';
-import { Geist_Mono, JetBrains_Mono } from 'next/font/google';
+import { Inter, Geist_Mono, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
-import Header from '@/components/layout/Header';
-import TickerStrip from '@/components/layout/TickerStrip';
+import { Providers } from '@/components/Providers';
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+});
 
 const geistMono = Geist_Mono({
   subsets: ['latin'],
@@ -30,12 +35,12 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`dark ${geistMono.variable} ${jbMono.variable}`}
+      className={`dark ${inter.variable} ${geistMono.variable} ${jbMono.variable}`}
     >
-      <body className="antialiased bg-[#1a1a1a] text-[#e5e5e5]">
-        <Header />
-        <TickerStrip />
-        <main>{children}</main>
+      <body className="antialiased font-sans bg-bg-base text-text-primary">
+        <Providers>
+          {children}
+        </Providers>
       </body>
     </html>
   );

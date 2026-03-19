@@ -13,25 +13,23 @@ function MoverRow({ m }: { m: MoverDetail }) {
     return (
         <Link
             href={`/stock/${m.symbol}`}
-            className="flex items-center gap-3 py-2.5 px-1 border-b last:border-b-0 hover:bg-[#252525] rounded transition-colors"
-            style={{ borderColor: '#2a2a2a' }}
+            className="flex items-center gap-4 py-3 px-2 border-b border-border-subtle last:border-b-0 hover:bg-bg-elevated rounded-lg transition-all hover:scale-[1.01]"
         >
             {/* Symbol + name */}
             <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-mono font-bold" style={{ color: '#e5e5e5' }}>
+                <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-[13px] font-mono font-bold text-text-primary">
                         {m.symbol}
                     </span>
                     {m.volume_surge && (
                         <span
-                            className="text-[8px] px-1 py-0.5 rounded font-mono font-bold"
-                            style={{ background: 'rgba(234,146,62,0.15)', color: '#ea923e' }}
+                            className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-primary-dim text-primary"
                         >
                             VOL
                         </span>
                     )}
                 </div>
-                <div className="text-[10px] truncate" style={{ color: '#888' }}>
+                <div className="text-[11px] truncate text-text-secondary">
                     {m.name ?? m.symbol}
                 </div>
             </div>
@@ -39,15 +37,15 @@ function MoverRow({ m }: { m: MoverDetail }) {
             {/* Sparkline */}
             <SparkLine
                 data={m.sparkline ?? []}
-                color={isPos ? '#22c55e' : '#ef4444'}
-                width={60}
-                height={24}
+                color={isPos ? 'var(--positive)' : 'var(--negative)'}
+                width={70}
+                height={28}
             />
 
             {/* Change */}
             <span
-                className="text-xs font-mono font-semibold shrink-0"
-                style={{ color: isPos ? '#22c55e' : '#ef4444' }}
+                className="text-sm font-mono font-semibold shrink-0 w-16 text-right"
+                style={{ color: isPos ? 'var(--positive)' : 'var(--negative)' }}
             >
                 {isPos ? '+' : ''}{m.change_pct?.toFixed(2)}%
             </span>
@@ -78,28 +76,24 @@ export default function TopMovers() {
     const items = tab === 'gainers' ? gainers : losers;
 
     return (
-        <div
-            className="rounded-xl p-5"
-            style={{ background: '#0e0e0e', border: '1px solid #333' }}
-        >
+        <div className="rounded-2xl p-6 bg-bg-surface border border-border-subtle shadow-xl">
             {/* Header */}
-            <div className="flex items-center justify-between mb-4">
-                <span className="text-[10px] tracking-widest uppercase font-mono" style={{ color: '#888' }}>
+            <div className="flex items-center justify-between mb-5">
+                <span className="text-xs tracking-widest uppercase font-semibold text-text-secondary">
                     Top Movers
                 </span>
-                <div className="flex gap-1">
+                <div className="flex gap-1.5 bg-bg-elevated p-1 rounded-lg border border-border-subtle">
                     {(['gainers', 'losers'] as Tab[]).map((t) => (
                         <button
                             key={t}
                             onClick={() => setTab(t)}
-                            className="text-[10px] px-2 py-0.5 rounded font-mono capitalize transition-colors"
-                            style={
+                            className={`text-[11px] px-3 py-1 rounded-md font-mono capitalize transition-colors font-medium ${
                                 tab === t
                                     ? t === 'gainers'
-                                        ? { background: 'rgba(34,197,94,0.15)', color: '#22c55e' }
-                                        : { background: 'rgba(239,68,68,0.15)', color: '#ef4444' }
-                                    : { color: '#888' }
-                            }
+                                        ? 'bg-green-500/10 text-positive'
+                                        : 'bg-red/10 text-negative'
+                                    : 'text-text-secondary hover:text-text-primary'
+                            }`}
                         >
                             {t}
                         </button>
@@ -108,16 +102,16 @@ export default function TopMovers() {
             </div>
 
             {/* Rows */}
-            <div>
+            <div className="pr-1">
                 {loading
                     ? [1, 2, 3, 4, 5].map((n) => (
-                        <div key={n} className="flex items-center gap-3 py-2.5 border-b last:border-b-0" style={{ borderColor: '#2a2a2a' }}>
+                        <div key={n} className="flex items-center gap-4 py-3 border-b border-border-subtle last:border-b-0">
                             <div className="flex-1">
-                                <div className="skeleton h-3 w-16 rounded mb-1" />
-                                <div className="skeleton h-2.5 w-24 rounded" />
+                                <div className="skeleton h-3 w-16 rounded mb-1.5" />
+                                <div className="skeleton h-2 w-24 rounded" />
                             </div>
-                            <div className="skeleton h-6 w-14 rounded" />
-                            <div className="skeleton h-3 w-12 rounded" />
+                            <div className="skeleton h-7 w-16 rounded" />
+                            <div className="skeleton h-4 w-14 rounded" />
                         </div>
                     ))
                     : items.map((m) => <MoverRow key={m.symbol} m={m} />)}

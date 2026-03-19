@@ -32,25 +32,22 @@ export default function SectorHeatmap() {
     ];
 
     return (
-        <div
-            className="rounded-xl p-5 h-full"
-            style={{ background: '#0e0e0e', border: '1px solid #333' }}
-        >
+        <div className="rounded-2xl p-6 h-full bg-bg-surface border border-border-subtle shadow-xl">
             {/* Header */}
-            <div className="flex items-center justify-between mb-4">
-                <span className="text-[10px] tracking-widest uppercase font-mono" style={{ color: '#888' }}>
+            <div className="flex items-center justify-between mb-5">
+                <span className="text-xs tracking-widest uppercase font-semibold text-text-secondary">
                     Sector Performance
                 </span>
-                <div className="flex gap-1">
+                <div className="flex gap-1.5 bg-bg-elevated p-1 rounded-lg border border-border-subtle">
                     {TF_BTNS.map(({ label, key }) => (
                         <button
                             key={key}
                             onClick={() => setTf(key)}
-                            className="text-[10px] px-2 py-0.5 rounded font-mono transition-colors"
+                            className="text-[10px] px-3 py-1 rounded-md font-mono transition-colors"
                             style={
                                 tf === key
-                                    ? { background: '#ea923e', color: '#0e0e0e', fontWeight: 700 }
-                                    : { color: '#888' }
+                                    ? { background: 'var(--primary)', color: 'var(--color-text-inverse)', fontWeight: 700 }
+                                    : { color: 'var(--color-text-secondary)' }
                             }
                         >
                             {label}
@@ -60,13 +57,13 @@ export default function SectorHeatmap() {
             </div>
 
             {/* Bars */}
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-3">
                 {loading
                     ? [1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
-                        <div key={n} className="flex items-center gap-2">
-                            <div className="skeleton h-2.5 w-20 rounded" />
-                            <div className="skeleton h-1.5 flex-1 rounded" />
-                            <div className="skeleton h-2.5 w-10 rounded" />
+                        <div key={n} className="flex items-center gap-3">
+                            <div className="skeleton h-3 w-24 rounded" />
+                            <div className="skeleton h-2 flex-1 rounded" />
+                            <div className="skeleton h-3 w-12 rounded" />
                         </div>
                     ))
                     : sectors.map((s) => {
@@ -76,32 +73,29 @@ export default function SectorHeatmap() {
                         return (
                             <div
                                 key={s.sector_name}
-                                className="group relative flex items-center gap-2 cursor-default"
+                                className="group relative flex items-center gap-3 cursor-default py-1"
                                 onMouseEnter={() => setTooltip(s)}
                                 onMouseLeave={() => setTooltip(null)}
                             >
                                 <span
-                                    className="text-[10px] font-mono w-24 shrink-0 truncate"
-                                    style={{ color: '#888' }}
+                                    className="text-[11px] font-mono w-28 shrink-0 truncate text-text-secondary group-hover:text-text-primary transition-colors"
                                     title={s.sector_name}
                                 >
                                     {s.sector_name}
                                 </span>
-                                <div
-                                    className="flex-1 h-1.5 rounded-full overflow-hidden"
-                                    style={{ background: '#252525' }}
-                                >
+                                <div className="flex-1 h-2 rounded-full overflow-hidden bg-bg-elevated border border-border-subtle/50">
                                     <div
-                                        className="h-full rounded-full transition-all duration-500"
+                                        className="h-full rounded-full transition-all duration-500 shadow-sm"
                                         style={{
                                             width: `${fillPct}%`,
-                                            background: isPos ? '#22c55e' : '#ef4444',
+                                            background: isPos ? 'var(--positive)' : 'var(--negative)',
+                                            boxShadow: `0 0 10px ${isPos ? 'var(--color-green-glow)' : 'var(--color-red-glow)'}`
                                         }}
                                     />
                                 </div>
                                 <span
-                                    className="text-[10px] font-mono w-12 text-right shrink-0"
-                                    style={{ color: isPos ? '#22c55e' : '#ef4444' }}
+                                    className="text-[11px] font-mono w-14 text-right shrink-0"
+                                    style={{ color: isPos ? 'var(--positive)' : 'var(--negative)' }}
                                 >
                                     {isPos ? '+' : ''}{perf.toFixed(2)}%
                                 </span>
@@ -109,20 +103,20 @@ export default function SectorHeatmap() {
                                 {/* Hover tooltip */}
                                 {tooltip?.sector_name === s.sector_name && (
                                     <div
-                                        className="absolute left-28 top-5 z-10 rounded-lg px-3 py-2 text-[10px] font-mono shadow-xl"
-                                        style={{ background: '#252525', border: '1px solid #333', minWidth: 160 }}
+                                        className="absolute left-[120px] top-6 z-20 rounded-xl p-3 text-xs font-mono shadow-2xl bg-bg-overlay border border-border-default backdrop-blur-md"
+                                        style={{ minWidth: 180 }}
                                     >
-                                        <div className="mb-1">
-                                            <span style={{ color: '#888' }}>Best: </span>
-                                            <span style={{ color: '#22c55e' }}>{s.top_performer ?? '—'}</span>
+                                        <div className="mb-1.5">
+                                            <span className="text-text-muted">Best: </span>
+                                            <span className="text-positive">{s.top_performer ?? '—'}</span>
                                         </div>
-                                        <div className="mb-1">
-                                            <span style={{ color: '#888' }}>Worst: </span>
-                                            <span style={{ color: '#ef4444' }}>{s.worst_performer ?? '—'}</span>
+                                        <div className="mb-1.5">
+                                            <span className="text-text-muted">Worst: </span>
+                                            <span className="text-negative">{s.worst_performer ?? '—'}</span>
                                         </div>
                                         <div>
-                                            <span style={{ color: '#888' }}>Mkt Cap: </span>
-                                            <span style={{ color: '#e5e5e5' }}>
+                                            <span className="text-text-muted">Mkt Cap: </span>
+                                            <span className="text-text-primary font-bold">
                                                 ₹{(s.market_cap_cr / 100000).toFixed(1)}L Cr
                                             </span>
                                         </div>

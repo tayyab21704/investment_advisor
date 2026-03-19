@@ -27,11 +27,10 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
     const d = payload[0].payload;
     return (
         <div
-            className="rounded-lg px-3 py-2 text-[11px] font-mono"
-            style={{ background: '#252525', border: '1px solid #333' }}
+            className="rounded-xl px-4 py-3 text-xs font-mono bg-bg-overlay border border-border-default shadow-2xl backdrop-blur-md"
         >
-            <div style={{ color: '#888' }}>{d.ts}</div>
-            <div style={{ color: '#e5e5e5', fontSize: 13, fontWeight: 700 }}>
+            <div className="text-text-muted mb-1">{d.ts}</div>
+            <div className="text-text-primary font-bold text-sm">
                 ₹{d.close?.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
             </div>
         </div>
@@ -69,7 +68,7 @@ export default function MarketChart({ symbol = '^NSEI', label = 'NIFTY 50' }: { 
     const minY = closes.length ? Math.min(...closes) * 0.998 : 0;
     const maxY = closes.length ? Math.max(...closes) * 1.002 : 1;
     const isPos = data.length >= 2 ? data[data.length - 1].close >= data[0].close : true;
-    const lineColor = isPos ? '#22c55e' : '#ef4444';
+    const lineColor = isPos ? 'var(--positive)' : 'var(--negative)';
     const fillId = `area-fill-${isPos ? 'g' : 'r'}`;
 
     // SMA reference lines for M/Y/5Y
@@ -77,29 +76,29 @@ export default function MarketChart({ symbol = '^NSEI', label = 'NIFTY 50' }: { 
 
     return (
         <div
-            className="rounded-xl p-5 flex flex-col"
-            style={{ background: '#0e0e0e', border: '1px solid #333', minHeight: 420 }}
+            className="rounded-2xl p-6 flex flex-col bg-bg-surface border border-border-subtle shadow-xl"
+            style={{ minHeight: 420 }}
         >
             {/* Header */}
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-5">
                 <div>
-                    <div className="text-sm font-bold uppercase tracking-tight" style={{ color: '#e5e5e5' }}>
+                    <div className="text-sm font-bold uppercase tracking-tight text-text-primary">
                         {label} Trend
                     </div>
-                    <div className="text-[10px] font-mono" style={{ color: '#888' }}>
+                    <div className="text-[11px] font-mono text-text-secondary mt-0.5">
                         Live Market Analysis
                     </div>
                 </div>
-                <div className="flex gap-1">
+                <div className="flex gap-1.5 bg-bg-elevated p-1 rounded-lg border border-border-subtle">
                     {TF_LIST.map((t) => (
                         <button
                             key={t}
                             onClick={() => setTf(t)}
-                            className="text-[10px] px-2.5 py-1 rounded font-mono transition-colors"
+                            className="text-[11px] px-3 py-1 rounded-md font-mono transition-colors"
                             style={
                                 tf === t
-                                    ? { background: '#ea923e', color: '#0e0e0e', fontWeight: 700 }
-                                    : { color: '#888' }
+                                    ? { background: 'var(--primary)', color: 'var(--color-text-inverse)', fontWeight: 700 }
+                                    : { color: 'var(--color-text-secondary)' }
                             }
                         >
                             {t}
@@ -113,7 +112,7 @@ export default function MarketChart({ symbol = '^NSEI', label = 'NIFTY 50' }: { 
                 {loading ? (
                     <div className="skeleton h-full w-full rounded-lg" />
                 ) : data.length === 0 ? (
-                    <div className="flex items-center justify-center h-full" style={{ color: '#555' }}>
+                    <div className="flex items-center justify-center h-full text-text-muted">
                         No data available
                     </div>
                 ) : (
@@ -121,21 +120,21 @@ export default function MarketChart({ symbol = '^NSEI', label = 'NIFTY 50' }: { 
                         <AreaChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                             <defs>
                                 <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor={lineColor} stopOpacity={0.18} />
+                                    <stop offset="0%" stopColor={lineColor} stopOpacity={0.25} />
                                     <stop offset="100%" stopColor={lineColor} stopOpacity={0} />
                                 </linearGradient>
                             </defs>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#1f1f1f" vertical={false} />
+                            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-subtle)" vertical={false} />
                             <XAxis
                                 dataKey="ts"
-                                tick={{ fill: '#555', fontSize: 9, fontFamily: 'monospace' }}
+                                tick={{ fill: 'var(--color-text-muted)', fontSize: 10, fontFamily: 'monospace' }}
                                 axisLine={false}
                                 tickLine={false}
                                 interval="preserveStartEnd"
                             />
                             <YAxis
                                 domain={[minY, maxY]}
-                                tick={{ fill: '#555', fontSize: 9, fontFamily: 'monospace' }}
+                                tick={{ fill: 'var(--color-text-muted)', fontSize: 10, fontFamily: 'monospace' }}
                                 axisLine={false}
                                 tickLine={false}
                                 width={60}
@@ -143,22 +142,22 @@ export default function MarketChart({ symbol = '^NSEI', label = 'NIFTY 50' }: { 
                             />
                             <Tooltip content={<CustomTooltip />} />
                             {showSma && detail?.sma_20 && (
-                                <ReferenceLine y={detail.sma_20} stroke="#555" strokeDasharray="4 3" strokeWidth={1} label={{ value: 'SMA20', fill: '#555', fontSize: 9 }} />
+                                <ReferenceLine y={detail.sma_20} stroke="var(--color-text-muted)" strokeDasharray="4 3" strokeWidth={1} label={{ value: 'SMA20', fill: 'var(--color-text-muted)', fontSize: 9 }} />
                             )}
                             {showSma && detail?.sma_50 && (
-                                <ReferenceLine y={detail.sma_50} stroke="#ea923e" strokeDasharray="4 3" strokeWidth={1} label={{ value: 'SMA50', fill: '#ea923e', fontSize: 9 }} />
+                                <ReferenceLine y={detail.sma_50} stroke="var(--primary)" strokeDasharray="4 3" strokeWidth={1} label={{ value: 'SMA50', fill: 'var(--primary)', fontSize: 9 }} />
                             )}
                             {showSma && detail?.sma_200 && (
-                                <ReferenceLine y={detail.sma_200} stroke="#6a9d9e" strokeDasharray="4 3" strokeWidth={1} label={{ value: 'SMA200', fill: '#6a9d9e', fontSize: 9 }} />
+                                <ReferenceLine y={detail.sma_200} stroke="var(--blue)" strokeDasharray="4 3" strokeWidth={1} label={{ value: 'SMA200', fill: 'var(--blue)', fontSize: 9 }} />
                             )}
                             <Area
                                 type="monotone"
                                 dataKey="close"
                                 stroke={lineColor}
-                                strokeWidth={1.5}
+                                strokeWidth={2}
                                 fill={`url(#${fillId})`}
                                 dot={false}
-                                activeDot={{ r: 4, fill: lineColor, stroke: '#0e0e0e', strokeWidth: 2 }}
+                                activeDot={{ r: 5, fill: lineColor, stroke: 'var(--color-bg-surface)', strokeWidth: 2 }}
                             />
                         </AreaChart>
                     </ResponsiveContainer>
@@ -168,8 +167,7 @@ export default function MarketChart({ symbol = '^NSEI', label = 'NIFTY 50' }: { 
             {/* Stat strip */}
             {detail && (
                 <div
-                    className="grid grid-cols-4 mt-4 pt-3 gap-2"
-                    style={{ borderTop: '1px solid #2a2a2a' }}
+                    className="grid grid-cols-4 mt-5 pt-4 gap-3 border-t border-border-default"
                 >
                     {[
                         { label: 'Day High', value: detail.day_high },
@@ -177,11 +175,11 @@ export default function MarketChart({ symbol = '^NSEI', label = 'NIFTY 50' }: { 
                         { label: '52W High', value: detail.year_high },
                         { label: '52W Low', value: detail.year_low },
                     ].map(({ label, value }) => (
-                        <div key={label}>
-                            <div className="text-[9px] uppercase tracking-wider font-mono mb-0.5" style={{ color: '#555' }}>
+                        <div key={label} className="bg-bg-elevated p-2 rounded-lg border border-border-subtle hover:border-border-accent transition-colors">
+                            <div className="text-[10px] uppercase tracking-wider font-semibold text-text-secondary mb-1">
                                 {label}
                             </div>
-                            <div className="text-xs font-mono" style={{ color: '#e5e5e5' }}>
+                            <div className="text-sm font-bold text-text-primary">
                                 {value != null ? `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}` : '—'}
                             </div>
                         </div>

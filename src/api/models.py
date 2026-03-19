@@ -220,3 +220,53 @@ class MarketStatusResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str = "ok"
     timestamp: str                                  # ISO 8601, IST
+
+# ── Authentication Models ─────────────────────────────────────────────────────
+
+class UserRegistrationRequest(BaseModel):
+    name: str
+    email: str
+    password: str
+    
+    # Risk Metrics
+    behavioral_risk_score: int
+    financial_risk_score: int
+    actual_risk_capacity: int
+    
+    # Financial Data
+    monthly_income: float
+    monthly_expenses: float
+    monthly_surplus: float
+    existing_debt: float
+    debt_to_income_ratio: float
+    
+    # Investment Constraints
+    liquidity_required_pct: float = 20.0
+    max_single_asset_pct: float = 15.0
+    max_high_risk_allocation_pct: float = 40.0
+    investment_horizon_years: int
+
+class UserLoginRequest(BaseModel):
+    email: str
+    password: str
+
+class AuthResponse(BaseModel):
+    token: str
+    user_id: str
+    name: str
+    email: str
+
+class UserProfileUpdateRequest(BaseModel):
+    name: str
+    behavioral_risk_score: int
+    financial_risk_score: int
+    actual_risk_capacity: int
+    monthly_income: float
+    monthly_expenses: float
+    monthly_surplus: float
+    existing_debt: float
+    debt_to_income_ratio: float
+    liquidity_required_pct: float = 20.0
+    max_single_asset_pct: float = 15.0
+    max_high_risk_allocation_pct: float = 40.0
+    investment_horizon_years: int

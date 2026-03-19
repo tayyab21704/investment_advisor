@@ -5,23 +5,23 @@ type Regime = 'BULLISH' | 'BEARISH' | 'NEUTRAL';
 interface RegimeBadgeProps {
     regime: Regime;
     confidence?: number | null;
-    size?: 'xs' | 'sm';
+    size?: 'xs' | 'sm' | 'md';
 }
 
 const styles: Record<Regime, string> = {
     BULLISH:
-        'bg-[rgba(234,146,62,0.12)] text-[#ea923e] border border-[rgba(234,146,62,0.25)]',
+        'bg-positive-dim text-positive border border-positive/20',
     BEARISH:
-        'bg-[rgba(239,68,68,0.12)] text-[#ef4444] border border-[rgba(239,68,68,0.2)]',
+        'bg-negative-dim text-negative border border-negative/20',
     NEUTRAL:
-        'bg-[rgba(136,136,136,0.1)] text-[#888888] border border-[#333]',
+        'bg-bg-elevated text-text-secondary border border-border-default',
 };
 
 export default function RegimeBadge({ regime, confidence, size = 'xs' }: RegimeBadgeProps) {
-    const textSize = size === 'xs' ? 'text-[9px]' : 'text-[11px]';
+    const textSize = size === 'xs' ? 'text-[9px]' : size === 'sm' ? 'text-[11px]' : 'text-xs px-2 py-1';
     return (
         <span
-            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full font-mono font-semibold tracking-widest uppercase ${textSize} ${styles[regime]}`}
+            className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md font-mono font-semibold tracking-widest uppercase ${textSize} ${styles[regime]}`}
         >
             {regime}
             {confidence != null && (

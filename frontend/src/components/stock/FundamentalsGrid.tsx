@@ -23,19 +23,18 @@ export default function FundamentalsGrid({ detail }: { detail: StockDetail }) {
 
     return (
         <div
-            className="rounded-xl p-5"
-            style={{ background: '#0e0e0e', border: '1px solid #333' }}
+            className="rounded-2xl p-6 bg-bg-surface border border-border-subtle shadow-xl"
         >
-            <div className="text-[10px] tracking-widest uppercase font-mono mb-4" style={{ color: '#888' }}>
+            <div className="text-[11px] font-semibold tracking-widest uppercase font-mono mb-5 text-text-secondary">
                 Fundamentals
             </div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+            <div className="grid grid-cols-2 gap-x-5 gap-y-4">
                 {cells.map(({ label, value }) => (
                     <div key={label}>
-                        <div className="text-[9px] uppercase tracking-wider font-mono mb-0.5" style={{ color: '#555' }}>
+                        <div className="text-[10px] uppercase tracking-wider font-mono font-semibold mb-1 text-text-muted">
                             {label}
                         </div>
-                        <div className="text-sm font-mono" style={{ color: '#e5e5e5' }}>
+                        <div className="text-[13px] font-mono font-bold text-text-primary">
                             {value}
                         </div>
                     </div>

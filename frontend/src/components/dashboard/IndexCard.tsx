@@ -17,12 +17,9 @@ const SYMBOL_MAP: Record<string, string> = {
 
 function Skeleton() {
     return (
-        <div
-            className="rounded-xl p-5 flex flex-col gap-3"
-            style={{ background: '#0e0e0e', border: '1px solid #333' }}
-        >
+        <div className="rounded-2xl p-6 flex flex-col gap-4 bg-bg-surface border border-border-subtle shadow-xl">
             <div className="skeleton h-3 w-24 rounded" />
-            <div className="skeleton h-7 w-36 rounded" />
+            <div className="skeleton h-8 w-36 rounded" />
             <div className="skeleton h-3 w-20 rounded" />
         </div>
     );
@@ -44,59 +41,45 @@ function IndexCardItem({
     return (
         <div
             onClick={() => onSelect(idx.symbol, name)}
-            className="group block rounded-xl p-5 transition-all duration-200 cursor-pointer"
-            style={{
-                background: '#0e0e0e',
-                border: isSelected ? '1px solid rgba(234,146,62,0.6)' : '1px solid #333',
-                boxShadow: isSelected ? '0 0 12px -3px rgba(234,146,62,0.2)' : 'none',
-            }}
-            onMouseEnter={(e) => {
-                if (!isSelected) {
-                    (e.currentTarget as HTMLElement).style.borderColor = 'rgba(234,146,62,0.35)';
-                    (e.currentTarget as HTMLElement).style.boxShadow = '0 0 15px -3px rgba(234,146,62,0.1)';
-                }
-            }}
-            onMouseLeave={(e) => {
-                if (!isSelected) {
-                    (e.currentTarget as HTMLElement).style.borderColor = '#333';
-                    (e.currentTarget as HTMLElement).style.boxShadow = 'none';
-                }
-            }}
+            className={`group block rounded-2xl p-6 transition-all duration-300 cursor-pointer shadow-xl ${
+                isSelected 
+                    ? 'bg-bg-elevated border-border-accent ring-1 ring-border-accent/50' 
+                    : 'bg-bg-surface border-border-subtle hover:bg-bg-elevated hover:border-border-default'
+            } border`}
         >
             {/* Top row */}
-            <div className="flex items-center justify-between mb-3">
-                <span className="text-[10px] tracking-widest uppercase font-mono" style={{ color: '#888' }}>
+            <div className="flex items-center justify-between mb-4">
+                <span className="text-[11px] tracking-widest uppercase font-mono text-text-secondary">
                     {name}
                 </span>
                 <span
-                    className="text-[9px] px-1.5 py-0.5 rounded-full font-mono tracking-wider"
-                    style={
+                    className={`text-[9px] px-2 py-0.5 rounded-full font-mono tracking-wider border ${
                         exchange === 'NSE'
-                            ? { color: '#ea923e', background: 'rgba(234,146,62,0.1)', border: '1px solid rgba(234,146,62,0.2)' }
-                            : { color: '#6a9d9e', background: 'rgba(106,157,158,0.1)', border: '1px solid rgba(106,157,158,0.2)' }
-                    }
+                            ? 'text-primary bg-primary-dim border-primary/20'
+                            : 'text-blue bg-blue-dim border-blue/20'
+                    }`}
                 >
                     {exchange}
                 </span>
             </div>
 
             {/* Price */}
-            <div className="mono-num text-2xl font-bold mb-2" style={{ color: '#e5e5e5' }}>
+            <div className="mono-num text-3xl font-semibold mb-3 text-text-primary tracking-tight">
                 {idx.current_price?.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
             </div>
 
             {/* Bottom row */}
             <div className="flex items-end justify-between">
                 <ChangeLabel value={idx.change_pct} absolute={idx.change} size="sm" />
-                <div className="flex flex-col items-end gap-1">
-                    <SparkLine data={idx.sparkline ?? []} color={isPos ? '#22c55e' : '#ef4444'} />
+                <div className="flex flex-col items-end gap-1.5">
+                    <SparkLine data={idx.sparkline ?? []} color={isPos ? 'var(--positive)' : 'var(--negative)'} />
                     <RegimeBadge regime={idx.market_regime ?? 'NEUTRAL'} confidence={idx.regime_confidence} />
                 </div>
             </div>
             {/* Subtle View Detail link */}
             <Link
                 href={`/stock/${idx.symbol}`}
-                className="block mt-4 text-center text-[9px] uppercase tracking-tighter text-[#555] hover:text-[#ea923e] transition-colors"
+                className="block mt-5 text-center text-[10px] uppercase tracking-wider text-text-muted hover:text-primary transition-colors font-medium border-t border-border-subtle pt-3"
                 onClick={(e) => e.stopPropagation()}
             >
                 View detailed analysis →

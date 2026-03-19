@@ -33,7 +33,8 @@ yfinance==0.2.48
 nsepython>=2.0
 twelvedata>=1.2.8
 pandas==2.2.3
-numpy==1.26.4
+numpy>=1.26.4
+Flask-Cors>=4.0.0
 scipy==1.14.1
 
 # ============================================
